@@ -33,6 +33,21 @@ jobs:
 
       - name: Build Android AAB
         run: flutter build appbundle --release
+        
+      - name: Upload Android AAB artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Setup Ruby for Fastlane
         uses: ruby/setup-ruby@v1
