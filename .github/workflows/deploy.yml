@@ -1,0 +1,94 @@
+name: Build & Deploy Flutter App
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*' # Trigger only on version tags like v1.0.0
+
+jobs:
+  android:
+    name: Android Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android App Bundle (AAB)
+        run: flutter build appbundle
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+
+      - name: Install fastlane
+        run: |
+          cd android
+          bundle install
+
+      - name: Deploy to Google Play (Beta)
+        env:
+          SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
+        run: |
+          cd android
+          echo "${SUPPLY_JSON_KEY}" > service_account.json
+          fastlane beta
+
+  ios:
+    name: iOS Build & Deploy
+    runs-on: macos-latest
+    needs: android
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS app (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+
+      - name: Install fastlane
+        run: |
+          cd ios
+          bundle install
+
+      - name: Decode certificates and profiles
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          mkdir -p ~/certs
+          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > ~/certs/cert.p12
+          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > ~/certs/profile.mobileprovision
+
+      - name: Deploy to App Store
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          cd ios
+          fastlane release
