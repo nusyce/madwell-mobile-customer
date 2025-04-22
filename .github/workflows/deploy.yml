@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*' # Trigger only on version tags like v1.0.0
+      - 'v*' # runs on tags like v1.0.0
 
 jobs:
   android:
@@ -13,37 +13,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
+      - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: Setup Flutter
+      - name: Remove any cached Flutter
+        run: rm -rf "$HOME/.flutter"
+
+      - name: Setup Flutter v3.29.3 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
         with:
-           flutter-version: '3.19.5'
-           cache: false
-       
-      - name: Install dependencies
+          flutter-version: '3.29.3'
+          cache: false
+
+      - name: Confirm Flutter & Dart versions
+        run: flutter --version
+
+      - name: Install Dart dependencies
         run: flutter pub get
 
-      - name: Build Android App Bundle (AAB)
-        run: flutter build appbundle
+      - name: Build Android AAB
+        run: flutter build appbundle --release
 
-      - name: Setup Ruby
+      - name: Setup Ruby for Fastlane
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
 
-      - name: Install fastlane
+      - name: Install Fastlane gems
         run: |
           cd android
           bundle install
 
-      - name: Deploy to Google Play (Beta)
+      - name: Deploy to Google Play (fastlane beta)
         env:
           SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
         run: |
           cd android
-          echo "${SUPPLY_JSON_KEY}" > service_account.json
+          echo "$SUPPLY_JSON_KEY" > service_account.json
           fastlane beta
 
   ios:
@@ -52,31 +58,38 @@ jobs:
     needs: android
 
     steps:
-      - name: Checkout source code
+      - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: Setup Flutter
+      - name: Remove any cached Flutter
+        run: rm -rf "$HOME/.flutter"
+
+      - name: Setup Flutter v3.29.3 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
+          flutter-version: '3.29.3'
+          cache: false
 
-      - name: Install dependencies
+      - name: Confirm Flutter & Dart versions
+        run: flutter --version
+
+      - name: Install Dart dependencies
         run: flutter pub get
 
-      - name: Build iOS app (no codesign)
+      - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 
-      - name: Setup Ruby
+      - name: Setup Ruby for Fastlane
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
 
-      - name: Install fastlane
+      - name: Install Fastlane gems
         run: |
           cd ios
           bundle install
 
-      - name: Decode certificates and profiles
+      - name: Decode Apple certificates & profiles
         env:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
@@ -86,7 +99,7 @@ jobs:
           echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > ~/certs/cert.p12
           echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > ~/certs/profile.mobileprovision
 
-      - name: Deploy to App Store
+      - name: Deploy to App Store (fastlane release)
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
