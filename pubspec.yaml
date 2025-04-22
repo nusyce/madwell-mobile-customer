@@ -1,7 +1,7 @@
-# DO NOT CHANGE THE NAME (e_demand),
+# DO NOT CHANGE THE NAME (madwell),
 #IF YOU WANT TO CHANGE THIS NAME, THEN YOU HAVE TO CHANGE THE EACH IMPORT STATEMENT IN THE CODE
 #THIS NAME WILL NOT IMPACT IN YOUR APP, SO ITS NOT MANDATORY TO CHANGE IT
-name: e_demand
+name: madwell
 description: A new Flutter project.
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
