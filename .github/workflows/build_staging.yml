@@ -9,22 +9,16 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  setup-env-files:
-    name: Setup Environment Files
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      actions: write
+  android:
+    name: Android Staging Build
+    runs-on: ubuntu-latest  
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3 
 
       - name: Create staging env file
-        run: |
-          pwd
-          echo "Creating .env file in current directory"
+        run: |  
           cat > .env << 'EOL'
           # Staging Environment Configuration
 
@@ -56,62 +50,6 @@ jobs:
           IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
           EOL
           
-          echo "Current directory contents:"
-          ls -la
-          
-          echo "Verifying .env file exists and has content:"
-          if [ -f ".env" ]; then
-            echo ".env file exists"
-            wc -l .env
-          else
-            echo "Error: .env file not found"
-            exit 1
-          fi
-
-      - name: Upload env file
-        run: |
-          echo "Preparing env file for upload"
-          mkdir -p env_artifact
-          cp .env env_artifact/
-          echo "Contents of env_artifact directory:"
-          ls -la env_artifact/
-
-      - name: Upload env files
-        uses: actions/upload-artifact@master
-        with:
-          name: env-files
-          path: env_artifact/.env
-
-  android:
-    name: Android Staging Build
-    runs-on: ubuntu-latest
-    needs: setup-env-files
-    permissions:
-      contents: read
-      id-token: write
-      actions: read
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v3
-
-      - name: Download env files
-        uses: actions/download-artifact@master
-        with:
-          name: env-files
-
-      - name: Setup env file
-        run: |
-          echo "Current directory contents:"
-          ls -la
-          
-          echo "Moving .env file to correct location"
-          cp .env ./.env
-          
-          echo "Verifying .env file in final location:"
-          ls -la .env
-          echo "File contents (line count):"
-          wc -l .env
 
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
@@ -179,7 +117,6 @@ jobs:
   ios:
     name: iOS Staging Build
     runs-on: macos-latest
-    needs: setup-env-files
     permissions:
       contents: read
       id-token: write
@@ -188,24 +125,39 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
+      
+      - name: Create staging env file
+        run: |  
+          cat > .env << 'EOL'
+          # Staging Environment Configuration
 
-      - name: Download env files
-        uses: actions/download-artifact@master
-        with:
-          name: env-files
+          # API Keys
+          GOOGLE_MAPS_API_KEY=${{ secrets.STAGING_GOOGLE_MAPS_API_KEY }}
+          ADMOB_APP_ID=${{ secrets.STAGING_ADMOB_APP_ID }}
 
-      - name: Setup env file
-        run: |
-          echo "Current directory contents:"
-          ls -la
-          
-          echo "Moving .env file to correct location"
-          cp .env ./.env
-          
-          echo "Verifying .env file in final location:"
-          ls -la .env
-          echo "File contents (line count):"
-          wc -l .env
+          # Firebase Configuration - Android
+          FIREBASE_ANDROID_API_KEY=${{ secrets.STAGING_FIREBASE_ANDROID_API_KEY }}
+          FIREBASE_ANDROID_APP_ID=${{ secrets.STAGING_FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_ANDROID_PROJECT_ID=${{ secrets.STAGING_FIREBASE_PROJECT_ID }}
+          FIREBASE_ANDROID_STORAGE_BUCKET=${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID=${{ secrets.STAGING_FIREBASE_MESSAGING_SENDER_ID }}
+
+          # Firebase Configuration - iOS
+          FIREBASE_IOS_API_KEY=${{ secrets.STAGING_FIREBASE_IOS_API_KEY }}
+          FIREBASE_IOS_APP_ID=${{ secrets.STAGING_FIREBASE_IOS_APP_ID }}
+          FIREBASE_IOS_PROJECT_ID=${{ secrets.STAGING_FIREBASE_PROJECT_ID }}
+          FIREBASE_IOS_STORAGE_BUCKET=${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_IOS_CLIENT_ID=${{ secrets.STAGING_FIREBASE_IOS_CLIENT_ID }}
+
+          # API Configuration
+          API_BASE_URL=${{ secrets.STAGING_API_BASE_URL }}
+
+          # App Configuration
+          APP_NAME=Madwell Staging
+          ANDROID_PACKAGE_NAME=app.maddwell.pro.customer.staging
+          IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
+          EOL
+
 
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
