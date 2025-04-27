@@ -23,6 +23,8 @@ jobs:
 
       - name: Create staging env file
         run: |
+          pwd
+          echo "Creating .env file in current directory"
           cat > .env << 'EOL'
           # Staging Environment Configuration
 
@@ -54,19 +56,31 @@ jobs:
           IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
           EOL
           
-          # Verify the file exists and has content
-          ls -la .env
-          echo "Verifying .env file exists in workspace root"
-          if [ ! -f ".env" ]; then
+          echo "Current directory contents:"
+          ls -la
+          
+          echo "Verifying .env file exists and has content:"
+          if [ -f ".env" ]; then
+            echo ".env file exists"
+            wc -l .env
+          else
             echo "Error: .env file not found"
             exit 1
           fi
+
+      - name: Upload env file
+        run: |
+          echo "Preparing env file for upload"
+          mkdir -p env_artifact
+          cp .env env_artifact/
+          echo "Contents of env_artifact directory:"
+          ls -la env_artifact/
 
       - name: Upload env files
         uses: actions/upload-artifact@master
         with:
           name: env-files
-          path: .env
+          path: env_artifact/.env
 
   android:
     name: Android Staging Build
@@ -86,22 +100,18 @@ jobs:
         with:
           name: env-files
 
-      - name: Verify and copy env file
+      - name: Setup env file
         run: |
-          # Verify the downloaded .env file exists
-          if [ ! -f ".env" ]; then
-            echo "Error: .env file not found after download"
-            exit 1
-          fi
+          echo "Current directory contents:"
+          ls -la
           
-          # Show the .env file contents (excluding sensitive data)
-          echo "Verifying .env file contents (showing non-sensitive lines):"
-          grep -v "KEY\|ID\|SECRET" .env || true
-          
-          # Ensure the file is in the correct location for Flutter assets
-          echo "Copying .env file to project root"
+          echo "Moving .env file to correct location"
           cp .env ./.env
+          
+          echo "Verifying .env file in final location:"
           ls -la .env
+          echo "File contents (line count):"
+          wc -l .env
 
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
@@ -184,22 +194,18 @@ jobs:
         with:
           name: env-files
 
-      - name: Verify and copy env file
+      - name: Setup env file
         run: |
-          # Verify the downloaded .env file exists
-          if [ ! -f ".env" ]; then
-            echo "Error: .env file not found after download"
-            exit 1
-          fi
+          echo "Current directory contents:"
+          ls -la
           
-          # Show the .env file contents (excluding sensitive data)
-          echo "Verifying .env file contents (showing non-sensitive lines):"
-          grep -v "KEY\|ID\|SECRET" .env || true
-          
-          # Ensure the file is in the correct location for Flutter assets
-          echo "Copying .env file to project root"
+          echo "Moving .env file to correct location"
           cp .env ./.env
+          
+          echo "Verifying .env file in final location:"
           ls -la .env
+          echo "File contents (line count):"
+          wc -l .env
 
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
