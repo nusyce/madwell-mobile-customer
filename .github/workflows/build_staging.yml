@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: env-files
-          path: .env
+          path: .
 
   android:
     name: Android Staging Build
