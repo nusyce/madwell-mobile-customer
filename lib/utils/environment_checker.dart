@@ -1,6 +1,5 @@
 import 'dart:math' show min;
 import 'package:e_demand/config/environment_config.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 

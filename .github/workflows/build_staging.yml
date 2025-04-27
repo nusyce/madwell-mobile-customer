@@ -69,6 +69,23 @@ jobs:
           ${{ secrets.STAGING_GOOGLE_SERVICES_JSON }}
           EOL
 
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/upload-keystore.jks
+          
+          # Create key.properties
+          cat > android/key.properties << 'EOL'
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=../upload-keystore.jks
+          EOL
+          
+          # Verify files exist
+          echo "Verifying keystore and properties files:"
+          ls -la android/upload-keystore.jks
+          ls -la android/key.properties
+
       - name: Build Android Staging APK
         run: flutter build apk --flavor staging --dart-define=ENV=staging
 
@@ -117,10 +134,7 @@ jobs:
   ios:
     name: iOS Staging Build
     runs-on: macos-latest
-    permissions:
-      contents: read
-      id-token: write
-      actions: read
+    needs: android
 
     steps:
       - name: Checkout source
@@ -177,8 +191,17 @@ jobs:
           ${{ secrets.STAGING_GOOGLE_SERVICE_INFO_PLIST }}
           EOL
 
-      - name: Build iOS (no codesign)
-        run: flutter build ios --flavor staging --dart-define=ENV=staging --no-codesign
+      - name: Create Xcode Scheme for Staging
+        run: |
+          cd ios
+          # Create a new scheme for staging
+          xcodebuild -scheme Runner -configuration Release -derivedDataPath build/
+          # List available schemes
+          xcodebuild -list
+
+      - name: Build iOS
+        run: |
+          flutter build ios --release --dart-define=ENV=staging --no-codesign
 
       - name: Setup Ruby for Fastlane
         uses: ruby/setup-ruby@v1

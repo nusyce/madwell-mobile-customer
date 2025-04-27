@@ -103,7 +103,7 @@ class EnvReader {
             appId: dotenv.dotenv.env['FIREBASE_ANDROID_APP_ID']!,
             messagingSenderId: dotenv.dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
             projectId: dotenv.dotenv.env['FIREBASE_ANDROID_PROJECT_ID']!,
-            storageBucket: dotenv.dotenv.env['FIREBASE_ANDROID_STORAGE_BUCKET']!,
+            storageBucket: dotenv.dotenv.env['FIREBASE_ANDROID_STORAGE_BUCKET'],
           );
         }
         
@@ -122,9 +122,9 @@ class EnvReader {
             appId: dotenv.dotenv.env['FIREBASE_IOS_APP_ID']!,
             messagingSenderId: dotenv.dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
             projectId: dotenv.dotenv.env['FIREBASE_IOS_PROJECT_ID']!,
-            storageBucket: dotenv.dotenv.env['FIREBASE_IOS_STORAGE_BUCKET']!,
-            iosClientId: dotenv.dotenv.env['FIREBASE_IOS_CLIENT_ID']!,
-            iosBundleId: dotenv.dotenv.env['FIREBASE_IOS_BUNDLE_ID']!,
+            storageBucket: dotenv.dotenv.env['FIREBASE_IOS_STORAGE_BUCKET'],
+            iosClientId: dotenv.dotenv.env['FIREBASE_IOS_CLIENT_ID'],
+            iosBundleId: dotenv.dotenv.env['FIREBASE_IOS_BUNDLE_ID'],
           );
         }
         
