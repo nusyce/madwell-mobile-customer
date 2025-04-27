@@ -12,6 +12,11 @@ jobs:
   setup-env-files:
     name: Setup Environment Files
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      actions: write
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
@@ -60,6 +65,10 @@ jobs:
     name: Android Staging Build
     runs-on: ubuntu-latest
     needs: setup-env-files
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
 
     steps:
       - name: Checkout source
@@ -69,7 +78,6 @@ jobs:
         uses: actions/download-artifact@master
         with:
           name: env-files
-          path: .
 
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
@@ -138,6 +146,10 @@ jobs:
     name: iOS Staging Build
     runs-on: macos-latest
     needs: setup-env-files
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
 
     steps:
       - name: Checkout source
@@ -147,7 +159,6 @@ jobs:
         uses: actions/download-artifact@master
         with:
           name: env-files
-          path: .
 
       - name: Setup Flutter v3.29.3 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
