@@ -1,5 +1,6 @@
 import 'package:e_demand/app/generalImports.dart';
-import "package:flutter/material.dart";
+import "package:flutter/material.dart"; 
+import 'package:e_demand/config/firebase_options_helper.dart';
 
 Future<void> initApp() async {
   //
@@ -15,7 +16,7 @@ Future<void> initApp() async {
 
   if (Firebase.apps.isNotEmpty) {
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: CustomFirebaseOptions.currentPlatform,
     );
   } else {
     await Firebase.initializeApp();

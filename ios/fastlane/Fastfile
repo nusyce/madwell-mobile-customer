@@ -1,0 +1,127 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build staging app and upload to TestFlight"
+  lane :build_staging do
+    setup_ci if ENV['CI']
+    
+    # Create a temporary keychain for CI
+    if ENV['CI']
+      create_keychain(
+        name: "ci_keychain",
+        password: ENV["IOS_KEYCHAIN_PASSWORD"],
+        default_keychain: true,
+        unlock: true,
+        timeout: 3600,
+        lock_when_sleeps: false
+      )
+      
+      import_certificate(
+        certificate_path: "~/certs/cert.p12",
+        certificate_password: ENV["MATCH_PASSWORD"],
+        keychain_name: "ci_keychain",
+        keychain_password: ENV["IOS_KEYCHAIN_PASSWORD"]
+      )
+      
+      install_provisioning_profile(path: "~/certs/profile.mobileprovision")
+    end
+    
+    # Update build number based on CI build number or timestamp
+    build_number = ENV['GITHUB_RUN_NUMBER'] || Time.now.to_i.to_s
+    increment_build_number(
+      build_number: build_number,
+      xcodeproj: "Runner.xcodeproj"
+    )
+    
+    # Build the app
+    gym(
+      scheme: "staging",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          ENV["STAGING_IOS_BUNDLE_ID"] => "Madwell Staging Profile"
+        }
+      },
+      configuration: "Release-staging",
+      output_directory: "build",
+      output_name: "Runner.ipa"
+    )
+    
+    # Upload to TestFlight if credentials available
+    if ENV["APP_STORE_CONNECT_API_KEY"]
+      app_store_connect_api_key(
+        key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+        issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+        key_content: ENV["APP_STORE_CONNECT_API_KEY"],
+      )
+      
+      upload_to_testflight(
+        skip_waiting_for_build_processing: true,
+        apple_id: ENV["APPLE_ID"],
+        app_identifier: ENV["STAGING_IOS_BUNDLE_ID"],
+        ipa: "build/Runner.ipa"
+      )
+    end
+  end
+  
+  desc "Build production app and upload to TestFlight"
+  lane :release do
+    setup_ci if ENV['CI']
+    
+    # Create a temporary keychain for CI
+    if ENV['CI']
+      create_keychain(
+        name: "ci_keychain",
+        password: ENV["IOS_KEYCHAIN_PASSWORD"],
+        default_keychain: true,
+        unlock: true,
+        timeout: 3600,
+        lock_when_sleeps: false
+      )
+      
+      import_certificate(
+        certificate_path: "~/certs/cert.p12",
+        certificate_password: ENV["MATCH_PASSWORD"],
+        keychain_name: "ci_keychain",
+        keychain_password: ENV["IOS_KEYCHAIN_PASSWORD"]
+      )
+      
+      install_provisioning_profile(path: "~/certs/profile.mobileprovision")
+    end
+    
+    # Update build number based on CI build number or timestamp
+    build_number = ENV['GITHUB_RUN_NUMBER'] || Time.now.to_i.to_s
+    increment_build_number(
+      build_number: build_number,
+      xcodeproj: "Runner.xcodeproj"
+    )
+    
+    # Build the app
+    gym(
+      scheme: "prod",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          "app.maddwell.pro.customer" => "Madwell Production Profile"
+        }
+      },
+      configuration: "Release-prod",
+      output_directory: "build",
+      output_name: "Runner.ipa"
+    )
+    
+    # Upload to TestFlight 
+    app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_API_KEY"],
+    )
+    
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      apple_id: ENV["APPLE_ID"],
+      app_identifier: "app.maddwell.pro.customer",
+      ipa: "build/Runner.ipa"
+    )
+  end
+end 

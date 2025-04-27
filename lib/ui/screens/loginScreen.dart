@@ -113,7 +113,7 @@ class _LogInScreenState extends State<LogInScreen> {
             color: Theme.of(context).colorScheme.blackColor,
             fontWeight: FontWeight.w600,
             fontStyle: FontStyle.normal,
-            fontSize: 28,
+            fontSize: 24,
             textAlign: TextAlign.center,
           ),
           CustomText(
@@ -121,7 +121,7 @@ class _LogInScreenState extends State<LogInScreen> {
             color: Theme.of(context).colorScheme.accentColor,
             fontWeight: FontWeight.w600,
             fontStyle: FontStyle.normal,
-            fontSize: 28,
+            fontSize: 24,
             textAlign: TextAlign.center,
           ),
         ],
@@ -306,7 +306,7 @@ class _LogInScreenState extends State<LogInScreen> {
                     ),
                   ),
                   Positioned.directional(
-                      top: 55,
+                      top: 75,
                       end: 15,
                       textDirection: Directionality.of(context),
                       child: BlocBuilder<VerifyOtpCubit, VerifyOtpState>(

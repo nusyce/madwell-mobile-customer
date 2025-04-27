@@ -73,9 +73,9 @@ class Api {
   static String customJobBidders = "${baseUrl}fetch_custom_job_bidders";
   static String cancelCustomJobRequest = "${baseUrl}cancle_custom_job_request";
   //chat related APIs
-  static const String sendChatMessage = "${baseUrl}send_chat_message";
-  static const String getChatMessages = "${baseUrl}get_chat_history";
-  static const String getChatUsers = "${baseUrl}get_chat_providers_list";
+  static String sendChatMessage = "${baseUrl}send_chat_message";
+  static String getChatMessages = "${baseUrl}get_chat_history";
+  static String getChatUsers = "${baseUrl}get_chat_providers_list";
 
   ///API parameter
   static const String limit = "limit";

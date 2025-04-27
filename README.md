@@ -1,3 +1,141 @@
+# Madwell Mobile Customer App
+
+## Environment Setup
+
+This project supports multiple environments:
+- Development (dev)
+- Staging (staging)
+- Production (prod)
+
+Each environment has its own configuration, package name, and app icon.
+
+## Environment Configuration
+
+### Setup
+
+1. Copy the environment example files to the project root:
+
+```bash
+# For development
+cp .env_examples/env.dev .env.dev
+
+# For staging 
+cp .env_examples/env.staging .env.staging
+
+# For production
+cp .env_examples/env.prod .env.prod
+```
+
+2. Update the values in each `.env` file with the appropriate API keys and settings.
+
+### Running the App
+
+To run the app in a specific environment:
+
+```bash
+# Development
+flutter run --dart-define=ENV=dev --flavor dev
+
+# Staging
+flutter run --dart-define=ENV=staging --flavor staging
+
+# Production
+flutter run --dart-define=ENV=prod --flavor prod
+```
+
+### Building the App
+
+To build the app for a specific environment:
+
+```bash
+# Development APK
+flutter build apk --dart-define=ENV=dev --flavor dev
+
+# Staging APK
+flutter build apk --dart-define=ENV=staging --flavor staging
+
+# Production APK
+flutter build apk --dart-define=ENV=prod --flavor prod
+
+# Development App Bundle
+flutter build appbundle --dart-define=ENV=dev --flavor dev
+
+# Staging App Bundle
+flutter build appbundle --dart-define=ENV=staging --flavor staging
+
+# Production App Bundle
+flutter build appbundle --dart-define=ENV=prod --flavor prod
+```
+
+### Testing your setup
+
+You can run the environment test script to verify your setup:
+
+```bash
+./test_environment.sh
+```
+
+This script will help you run the app with the correct environment configuration.
+
+### App Icons
+
+The app uses different icons for each environment. To generate them:
+
+```bash
+# Generate icons for development
+flutter pub run flutter_launcher_icons -f flutter_launcher_icons-dev.yaml
+
+# Generate icons for staging
+flutter pub run flutter_launcher_icons -f flutter_launcher_icons-staging.yaml
+
+# Generate icons for production
+flutter pub run flutter_launcher_icons -f flutter_launcher_icons-prod.yaml
+```
+
+Make sure to place the appropriate icon files in the following locations:
+- `assets/images/branding/app_icon_dev.png`
+- `assets/images/branding/app_icon_foreground_dev.png`
+- `assets/images/branding/app_icon_staging.png`
+- `assets/images/branding/app_icon_foreground_staging.png`
+- `assets/images/branding/app_icon.png`
+- `assets/images/branding/app_icon_foreground.png`
+
+## Firebase Configuration
+
+Firebase configuration is managed through environment-specific settings.
+
+To change Firebase projects for each environment, update the configuration in the appropriate files:
+- `lib/config/dev_config.dart` (Development)
+- `lib/config/staging_config.dart` (Staging)
+- `lib/config/prod_config.dart` (Production)
+
+## Key Files
+
+The environment configuration is managed by the following files:
+
+- `lib/config/environment_config.dart`: Main configuration class
+- `lib/config/dev_config.dart`: Development environment settings
+- `lib/config/staging_config.dart`: Staging environment settings
+- `lib/config/prod_config.dart`: Production environment settings
+- `lib/config/env_reader.dart`: Environment file reader
+- `lib/config/firebase_options_helper.dart`: Firebase options helper
+- `lib/utils/environment_checker.dart`: Utility to check environment setup
+
+## API Keys and Security
+
+The environment setup securely manages:
+1. Firebase API keys
+2. Google Maps API keys
+3. AdMob App IDs
+4. Package/Bundle IDs
+5. API base URLs
+
+For maximum security:
+- Keep `.env` files out of version control (add to `.gitignore`)
+- Use different API keys for each environment
+- Restrict API keys in the respective services (Google Cloud Console, Firebase Console)
+- Follow best practices for mobile API key security
+
 ### Table of contents
 [System
 requirements] (#system-requirements)

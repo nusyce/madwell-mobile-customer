@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     projectId: 'madwell-staging-eb57e',
     storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
     iosClientId: '213795493196-e0h1m93sob8d6417ii56n1vrvd84dnv9.apps.googleusercontent.com',
-    iosBundleId: 'wrteam.edemand.customer.eDemand',
+    iosBundleId: 'app.maddwell.pro.customer',
   );
 
   static const FirebaseOptions web = FirebaseOptions(
