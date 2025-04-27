@@ -51,7 +51,7 @@ jobs:
           EOL
 
       - name: Upload env files
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v1
         with:
           name: env-files
           path: .env
@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Download env files
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v1
         with:
           name: env-files
           path: .
@@ -96,13 +96,13 @@ jobs:
         run: flutter build appbundle --flavor staging --dart-define=ENV=staging
         
       - name: Upload Android Staging APK artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v1
         with:
           name: android-staging-apk
           path: build/app/outputs/flutter-apk/app-staging-release.apk
 
       - name: Upload Android Staging AAB artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v1
         with:
           name: android-staging-aab
           path: build/app/outputs/bundle/stagingRelease/app-staging-release.aab
@@ -144,7 +144,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Download env files
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v1
         with:
           name: env-files
           path: .
@@ -199,7 +199,7 @@ jobs:
           fastlane build_staging
 
       - name: Upload iOS Staging IPA artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v1
         with:
           name: ios-staging-ipa
           path: ios/build/Runner.ipa 
