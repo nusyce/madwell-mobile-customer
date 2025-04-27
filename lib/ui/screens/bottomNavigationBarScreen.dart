@@ -2,6 +2,7 @@ import 'package:e_demand/app/generalImports.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({final Key? key}) : super(key: key);
 
@@ -45,7 +46,9 @@ class CustomNavigationBarState extends State<CustomNavigationBar>
   void initState() {
     super.initState();
 
-    MobileAds.instance.initialize();
+    if (context.read<SystemSettingCubit>().isAdEnabled()) {
+      MobileAds.instance.initialize();
+    }
     
 
     WidgetsBinding.instance.addObserver(this);

@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -28,15 +25,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -50,23 +41,51 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_API_KEY_HERE',
-    appId: '1:811828125363:android:ae603b4f47d49e0c1f5ac6',
-    messagingSenderId: '811828125363',
-    projectId: 'edemand-79907',
-    storageBucket: 'edemand-79907.appspot.com',
+    apiKey: 'AIzaSyAYMvWe1BHcdPBy_g2mnwU90qzPUYCnF6E',
+    appId: '1:213795493196:android:9202f052770d061c1cebe9',
+    messagingSenderId: '213795493196',
+    projectId: 'madwell-staging-eb57e',
+    storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR KEY HERE',
-    appId: '1:811828125363:ios:56d49869adb64d8f1f5ac6',
-    messagingSenderId: '811828125363',
-    projectId: 'edemand-79907',
-    storageBucket: 'edemand-79907.appspot.com',
-    androidClientId:
-        '811828125363-2mfsj2tv7aju1l1dmgucjkip7r9jsfnk.apps.googleusercontent.com',
-    iosClientId:
-        '811828125363-vti0p1njla22jlpem03gblvvq0kkkds0.apps.googleusercontent.com',
+    apiKey: 'AIzaSyB8O0S2F4WN2u8W6-bOqjLp2AOO1R4jioY',
+    appId: '1:213795493196:ios:2fe6317c27b1f04d1cebe9',
+    messagingSenderId: '213795493196',
+    projectId: 'madwell-staging-eb57e',
+    storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
+    iosClientId: '213795493196-e0h1m93sob8d6417ii56n1vrvd84dnv9.apps.googleusercontent.com',
     iosBundleId: 'wrteam.edemand.customer.eDemand',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyB8CndmCmuok4MdCXj3Q_8X4I9im5RFiUQ',
+    appId: '1:213795493196:web:ee02ebe966719ec61cebe9',
+    messagingSenderId: '213795493196',
+    projectId: 'madwell-staging-eb57e',
+    authDomain: 'madwell-staging-eb57e.firebaseapp.com',
+    storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
+    measurementId: 'G-6SCLY8Z5M1',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyB8O0S2F4WN2u8W6-bOqjLp2AOO1R4jioY',
+    appId: '1:213795493196:ios:a35a198f3365accf1cebe9',
+    messagingSenderId: '213795493196',
+    projectId: 'madwell-staging-eb57e',
+    storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
+    iosClientId: '213795493196-d3c2buekql5a26q536gk0vs8scj8i610.apps.googleusercontent.com',
+    iosBundleId: 'app.madwell.pro',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyB8CndmCmuok4MdCXj3Q_8X4I9im5RFiUQ',
+    appId: '1:213795493196:web:e5275695ee9af8611cebe9',
+    messagingSenderId: '213795493196',
+    projectId: 'madwell-staging-eb57e',
+    authDomain: 'madwell-staging-eb57e.firebaseapp.com',
+    storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
+    measurementId: 'G-W16T5JBZ6M',
+  );
+
 }

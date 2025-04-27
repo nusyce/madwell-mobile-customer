@@ -1,23 +1,23 @@
 import 'package:e_demand/app/generalImports.dart';
 
-const String appName = "eDemand";
+const String appName = "Maddwell";
 
 // domainURL should look like:- your_web_domain or your_panel_domain
-const String domain = 'edemandweb.wrteam.me'; 
+const String domain = 'app.maddwell.pro'; 
 
 //Add your baseURL
-const String baseUrl = "https://edemand.wrteam.me/api/v1/"; 
+const String baseUrl = "https://admin.staging.madwell.pro/api/v1/"; 
 
 const bool isDemoMode = false;
 
 //*******Add Your Language code and name here */
 //by default language of the app
-const String defaultLanguageCode = "en";
-const String defaultLanguageName = "English";
+const String defaultLanguageCode = "fr";
+const String defaultLanguageName = "Francais";
 
 //add your default country code here
 ///https://www.att.com/support_media/images/pdf/Country_Code_List.pdf
-String defaultCountryCode = "IN";
+String defaultCountryCode = "cm";
 
 //if you do not want user to select another country rather than default country,
 //then make below variable true
@@ -39,13 +39,13 @@ Map<String, dynamic> dateAndTimeSetting = {
 const List<AppLanguage> appLanguages = [
   //Please add language code here and language name
   AppLanguage(
+      languageCode: "fr",
+      languageName: "Francais",
+      imageURL: AppAssets.englishAu),
+  AppLanguage(
       languageCode: "en",
       languageName: "English",
       imageURL: AppAssets.englishAu),
-  AppLanguage(
-      languageCode: "hi", languageName: "हिन्दी", imageURL: AppAssets.hindi),
-  AppLanguage(
-      languageCode: "ar", languageName: "عربى", imageURL: AppAssets.arabic),
 ];
 
 //slider on home screen

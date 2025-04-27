@@ -122,7 +122,7 @@ extension StringExtension on String {
         'cur',
       ].contains(toLowerCase().split('.').lastOrNull ?? "");
 
-   toInt() {
+    toInt() {
     if (isEmpty) return this;
     return int.tryParse(this);
   }

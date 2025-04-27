@@ -1,4 +1,4 @@
-package wrteam.edemand.customer.e_demand
+package app.maddwell.pro.customer
 
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity

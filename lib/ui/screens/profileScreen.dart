@@ -3,6 +3,7 @@ import 'package:e_demand/cubits/updateFCMCubit.dart';
 import 'package:e_demand/ui/widgets/customSwitch.dart';
 import 'package:flutter/material.dart';
 
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.scrollController,

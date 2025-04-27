@@ -1,6 +1,7 @@
 import 'package:e_demand/app/generalImports.dart';
 import 'package:flutter/material.dart';
 
+
 class GalleryImagesStyles extends StatelessWidget {
   final List<String> imagesList;
 
