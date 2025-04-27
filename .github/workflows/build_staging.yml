@@ -22,8 +22,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Create staging env file
-        run: |
-          mkdir -p .env_examples
+        run: |  
           cat > .env << 'EOL'
           # Staging Environment Configuration
 
