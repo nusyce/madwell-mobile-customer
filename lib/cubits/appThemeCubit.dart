@@ -1,4 +1,4 @@
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 class AppThemeCubit extends Cubit<ThemeState> {
   AppThemeCubit(this.settingRepository) : super(ThemeState(AppTheme.light));

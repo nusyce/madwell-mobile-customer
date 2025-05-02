@@ -1,4 +1,4 @@
-import 'package:e_demand/cubits/updateFCMCubit.dart';
+import 'package:madwell/cubits/updateFCMCubit.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/generalImports.dart';

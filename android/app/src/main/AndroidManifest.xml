@@ -66,8 +66,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:host="app.maddwell.pro"
-                    android:scheme="maddwell" />
+                    android:host="app.madwell.pro"
+                    android:scheme="madwell" />
 
             </intent-filter>
 

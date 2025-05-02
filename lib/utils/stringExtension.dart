@@ -1,4 +1,4 @@
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -122,7 +122,7 @@ extension StringExtension on String {
         'cur',
       ].contains(toLowerCase().split('.').lastOrNull ?? "");
 
-    Object? toInt() {
+    toInt() {
     if (isEmpty) return this;
     return int.tryParse(this);
   }

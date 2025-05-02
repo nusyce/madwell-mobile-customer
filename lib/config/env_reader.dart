@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart' as dotenv; 
-import 'package:e_demand/config/environment_config.dart';
-import 'package:e_demand/config/template_env_config.dart';
+import 'package:madwell/config/environment_config.dart';
+import 'package:madwell/config/template_env_config.dart';
 import 'package:path_provider/path_provider.dart';
 
 class EnvReader {

@@ -1,5 +1,5 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/ui/widgets/review/reviewComment.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/ui/widgets/review/reviewComment.dart';
 import 'package:flutter/material.dart';
 
 class ReviewsContainer extends StatelessWidget {

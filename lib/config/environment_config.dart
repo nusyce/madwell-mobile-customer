@@ -37,12 +37,12 @@ class EnvironmentConfig {
 
   // Get application ID for Android based on environment
   static String get androidPackageName {
-    return _configMap['androidPackageName'] ?? 'app.maddwell.pro.customer';
+    return _configMap['androidPackageName'] ?? 'app.madwell.pro.customer';
   }
 
   // Get bundle ID for iOS based on environment
   static String get iosBundleId {
-    return _configMap['iosBundleId'] ?? 'app.maddwell.pro.customer';
+    return _configMap['iosBundleId'] ?? 'app.madwell.pro.customer';
   }
 
   // Get Google Maps API Key

@@ -46,7 +46,7 @@ jobs:
 
           # App Configuration
           APP_NAME=Madwell Staging
-          ANDROID_PACKAGE_NAME=app.maddwell.pro.customer.staging
+          ANDROID_PACKAGE_NAME=app.madwell.pro.customer.staging
           IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
           EOL
           
@@ -168,7 +168,7 @@ jobs:
 
           # App Configuration
           APP_NAME=Madwell Staging
-          ANDROID_PACKAGE_NAME=app.maddwell.pro.customer.staging
+          ANDROID_PACKAGE_NAME=app.madwell.pro.customer.staging
           IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
           EOL
 

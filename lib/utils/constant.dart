@@ -1,10 +1,10 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/config/environment_config.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/config/environment_config.dart';
 
-const String appName = "Maddwell";
+String appName = EnvironmentConfig.appName;
 
 // domainURL should look like:- your_web_domain or your_panel_domain
-const String domain = 'app.maddwell.pro'; 
+const String domain = 'app.madwell.pro'; 
 
 //Add your baseURL - This will be overridden by environment config
 String baseUrl = EnvironmentConfig.apiBaseUrl; 
@@ -42,7 +42,7 @@ const List<AppLanguage> appLanguages = [
   AppLanguage(
       languageCode: "fr",
       languageName: "Francais",
-      imageURL: AppAssets.englishAu),
+      imageURL: AppAssets.frenchAu),
   AppLanguage(
       languageCode: "en",
       languageName: "English",

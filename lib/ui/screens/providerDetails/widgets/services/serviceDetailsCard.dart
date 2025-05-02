@@ -1,6 +1,6 @@
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 import 'package:flutter/material.dart';
-import 'package:e_demand/ui/widgets/bannerPainter.dart' as BannerPainter;
+import 'package:madwell/ui/widgets/bannerPainter.dart' as BannerPainter;
 import 'package:intl/intl.dart';
 
 class ServiceDetailsCard extends StatelessWidget {

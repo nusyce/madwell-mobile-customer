@@ -30,7 +30,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace "app.maddwell.pro.customer"
+    namespace "app.madwell.pro.customer"
     compileSdk 35
     ndkVersion "26.1.10909125"
 
@@ -48,7 +48,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "app.maddwell.pro.customer"
+        applicationId "app.madwell.pro.customer"
         minSdkVersion 24
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()

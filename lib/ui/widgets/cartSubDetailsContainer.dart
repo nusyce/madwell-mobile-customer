@@ -1,5 +1,5 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/cubits/cart/removeCartCubit.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/cubits/cart/removeCartCubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_shader_snap/flutter_shader_snap.dart';
 import 'package:intl/intl.dart';

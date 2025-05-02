@@ -1,6 +1,6 @@
 // ignore_for_file: file_names
 
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 class GooglePlaceRepository {
   Future<PlacesModel> searchLocationsFromPlaceAPI(

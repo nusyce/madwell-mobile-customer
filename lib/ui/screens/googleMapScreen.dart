@@ -1,5 +1,5 @@
-import 'package:e_demand/cubits/fetchUserCurrentLocationCubit.dart';
-import 'package:e_demand/ui/widgets/tooltipShapeBorder.dart';
+import 'package:madwell/cubits/fetchUserCurrentLocationCubit.dart';
+import 'package:madwell/ui/widgets/tooltipShapeBorder.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 

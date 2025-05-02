@@ -1,5 +1,5 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/ui/widgets/categoryContainer.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/ui/widgets/categoryContainer.dart';
 import 'package:flutter/material.dart'; // ignore_for_file: use_build_context_synchronously
 
 import '../widgets/sliderImageWidget.dart';

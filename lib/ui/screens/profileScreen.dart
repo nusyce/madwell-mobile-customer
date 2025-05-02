@@ -1,6 +1,6 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/cubits/updateFCMCubit.dart';
-import 'package:e_demand/ui/widgets/customSwitch.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/cubits/updateFCMCubit.dart';
+import 'package:madwell/ui/widgets/customSwitch.dart';
 import 'package:flutter/material.dart';
 
 

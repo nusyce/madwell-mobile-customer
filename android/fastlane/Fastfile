@@ -14,7 +14,7 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true,
       release_status: "draft",
-      package_name: "app.maddwell.pro.customer.staging"
+      package_name: "app.madwell.pro.customer.staging"
     )
   end
 
@@ -31,7 +31,7 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true,
       release_status: "draft",
-      package_name: "app.maddwell.pro.customer"
+      package_name: "app.madwell.pro.customer"
     )
   end
 end 

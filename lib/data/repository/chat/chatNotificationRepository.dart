@@ -1,4 +1,4 @@
-import 'package:e_demand/data/model/chat/chatNotificationData.dart';
+import 'package:madwell/data/model/chat/chatNotificationData.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatNotificationsRepository {

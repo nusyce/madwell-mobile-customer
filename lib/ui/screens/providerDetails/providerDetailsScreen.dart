@@ -1,5 +1,5 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/ui/widgets/SliderPromoCode.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/ui/widgets/SliderPromoCode.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';

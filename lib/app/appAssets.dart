@@ -75,6 +75,7 @@ abstract class AppAssets {
   static const String drTerms = "${generalAssetsPath}dr_terms.svg";
   static const String drTheme = "${generalAssetsPath}dr_theme.svg";
   static const String englishAu = "${generalAssetsPath}english-au.svg";
+  static const String frenchAu = "${generalAssetsPath}france-au.svg";
   static const String googleIcon = "${generalAssetsPath}googleicon.svg";
   static const String hindi = "${generalAssetsPath}Hindi.svg";
   static const String home = "${generalAssetsPath}home.svg";

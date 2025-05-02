@@ -1,4 +1,4 @@
-package app.maddwell.pro.customer
+package app.madwell.pro.customer
 
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity

@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 import 'package:path/path.dart' as p;
 
 class UserRepository {

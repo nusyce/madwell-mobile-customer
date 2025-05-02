@@ -1,6 +1,6 @@
-import 'package:e_demand/data/model/categoryModel.dart';
-import 'package:e_demand/data/model/sectionModel.dart';
-import 'package:e_demand/data/model/sliderImagesModel.dart';
+import 'package:madwell/data/model/categoryModel.dart';
+import 'package:madwell/data/model/sectionModel.dart';
+import 'package:madwell/data/model/sliderImagesModel.dart';
 
 class HomeScreenModel {
   HomeScreenModel(this.sections, this.category, this.sliders);

@@ -1,6 +1,6 @@
 // ignore_for_file: unused_local_variable
 
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 class LocationRepository {
   //

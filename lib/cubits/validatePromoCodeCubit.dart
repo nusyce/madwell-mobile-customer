@@ -1,5 +1,5 @@
 //Cubit
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 class ValidatePromocodeCubit extends Cubit<ValidatePromoCodeState> {
   ValidatePromocodeCubit({required this.cartRepository})

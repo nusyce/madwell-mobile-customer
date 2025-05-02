@@ -1,5 +1,5 @@
 //Cubit
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 class AllCategoryCubit extends Cubit<AllCategoryState> {
   AllCategoryCubit(this.categoryRepository) : super(AllCategoryInitial());
