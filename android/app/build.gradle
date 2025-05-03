@@ -30,7 +30,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace "app.maddwell.pro.customer"
+    namespace "app.madwell.pro.customer"
     compileSdk 35
     ndkVersion "26.1.10909125"
 
@@ -48,7 +48,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "app.maddwell.pro.customer"
+        applicationId "app.madwell.pro.customer"
         minSdkVersion 24
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
@@ -62,6 +62,27 @@ android {
             keyPassword keystoreProperties['keyPassword']
             storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
             storePassword keystoreProperties['storePassword']
+        }
+    }
+
+    flavorDimensions "environment"
+    
+    productFlavors {
+        dev {
+            dimension "environment"
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
+        }
+        
+        staging {
+            dimension "environment"
+            applicationIdSuffix ".staging"
+            versionNameSuffix "-staging"
+        }
+        
+        prod {
+            dimension "environment"
+            // No applicationIdSuffix for production
         }
     }
 

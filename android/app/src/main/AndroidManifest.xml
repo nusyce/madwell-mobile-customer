@@ -14,7 +14,7 @@
         android:allowBackup="false"
         android:fullBackupOnly="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="eDemand"
+        android:label="@string/app_name"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
         android:extractNativeLibs="true">
@@ -27,7 +27,7 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_API_KEY_HERE" />
+            android:value="AIzaSyCwfukVGxK_naIuOCyp5q_pLwbyi4Hbprw" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="basic_channel" />
@@ -66,8 +66,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:host="app.maddwell.pro"
-                    android:scheme="maddwell" />
+                    android:host="app.madwell.pro"
+                    android:scheme="madwell" />
 
             </intent-filter>
 

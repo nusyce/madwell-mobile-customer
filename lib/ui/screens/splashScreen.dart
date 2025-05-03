@@ -1,6 +1,6 @@
 // ignore_for_file: file_names, use_build_context_synchronously
 
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 

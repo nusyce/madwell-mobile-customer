@@ -1,8 +1,8 @@
 // ignore_for_file: prefer_final_locals
 
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/data/model/countryCodeModel.dart';
-import 'package:e_demand/data/repository/countryCodeRepository.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/data/model/countryCodeModel.dart';
+import 'package:madwell/data/repository/countryCodeRepository.dart';
 import 'package:flutter/material.dart';
 
 abstract class CountryCodeState {}

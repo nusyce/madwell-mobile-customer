@@ -1,5 +1,5 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/ui/widgets/bottomsheets/layouts/promocodeDetailsBottomsheet.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/ui/widgets/bottomsheets/layouts/promocodeDetailsBottomsheet.dart';
 import 'package:flutter/material.dart';
 
 class PromocodeContainer extends StatelessWidget {

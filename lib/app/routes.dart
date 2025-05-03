@@ -1,8 +1,8 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/ui/screens/chat/chatMessagesScreen.dart';
-import 'package:e_demand/ui/screens/chat/chatUsersScreen.dart';
-import 'package:e_demand/ui/screens/chat/widgets/imagesFullScreen.dart';
-import 'package:e_demand/ui/screens/contactUs.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/ui/screens/chat/chatMessagesScreen.dart';
+import 'package:madwell/ui/screens/chat/chatUsersScreen.dart';
+import 'package:madwell/ui/screens/chat/widgets/imagesFullScreen.dart';
+import 'package:madwell/ui/screens/contactUs.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 

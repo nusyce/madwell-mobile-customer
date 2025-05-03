@@ -133,3 +133,13 @@ app.*.symbols
 # FVM Version Cache
 .fvm/
 .fvmrc
+
+# Add .env files
+.env
+.env.*
+!.env.template.txt
+
+# Add .env_examples files
+.env_examples
+.env_examples.*
+!.env_examples.template.txt

@@ -1,5 +1,5 @@
 //Cubit
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 class ValidateCustomTimeCubit extends Cubit<ValidateCustomTimeState> {
   ValidateCustomTimeCubit({required this.cartRepository})

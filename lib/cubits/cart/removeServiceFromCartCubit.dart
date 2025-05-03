@@ -1,4 +1,4 @@
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 @immutable
 abstract class RemoveServiceFromCartState {}

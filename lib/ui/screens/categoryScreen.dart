@@ -1,5 +1,5 @@
-import 'package:e_demand/app/generalImports.dart';
-import 'package:e_demand/ui/widgets/categoryContainer.dart';
+import 'package:madwell/app/generalImports.dart';
+import 'package:madwell/ui/widgets/categoryContainer.dart';
 import 'package:flutter/material.dart';
 
 class CategoryScreen extends StatefulWidget {

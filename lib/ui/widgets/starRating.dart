@@ -1,4 +1,4 @@
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 import 'package:flutter/material.dart';
 
 typedef RatingChangeCallback = void Function(double rating);

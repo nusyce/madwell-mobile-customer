@@ -1,0 +1,37 @@
+default_platform(:android)
+
+platform :android do
+  desc "Deploy staging app to internal test track"
+  lane :staging do
+    validate_play_store_json_key(
+      json_key: "service_account.json"
+    )
+    
+    upload_to_play_store(
+      track: 'internal',
+      aab: '../build/app/outputs/bundle/stagingRelease/app-staging-release.aab',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      release_status: "draft",
+      package_name: "app.madwell.pro.customer.staging"
+    )
+  end
+
+  desc "Deploy production app to beta track"
+  lane :beta do
+    validate_play_store_json_key(
+      json_key: "service_account.json"
+    )
+    
+    upload_to_play_store(
+      track: 'beta',
+      aab: '../build/app/outputs/bundle/release/app-release.aab',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      release_status: "draft",
+      package_name: "app.madwell.pro.customer"
+    )
+  end
+end 

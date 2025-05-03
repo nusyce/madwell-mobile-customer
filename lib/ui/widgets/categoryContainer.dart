@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 
 class CategoryContainer extends StatelessWidget {
   const CategoryContainer({

@@ -1,6 +1,6 @@
 // ignore_for_file: avoid_print
 
-import 'package:e_demand/app/generalImports.dart';
+import 'package:madwell/app/generalImports.dart';
 import 'package:flutter/widgets.dart';
 
 abstract class InterstitialAdState {}
