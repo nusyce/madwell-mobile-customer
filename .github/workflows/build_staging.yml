@@ -5,7 +5,7 @@ on:
     branches:
       - develop
       - staging
-      - setup-env-mode
+      - deploy-to-playstore
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
