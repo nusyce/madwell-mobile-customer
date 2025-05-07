@@ -1,4 +1,5 @@
 # DO NOT CHANGE THE NAME (madwell),
+# DO NOT CHANGE THE NAME (madwell),
 #IF YOU WANT TO CHANGE THIS NAME, THEN YOU HAVE TO CHANGE THE EACH IMPORT STATEMENT IN THE CODE
 #THIS NAME WILL NOT IMPACT IN YOUR APP, SO ITS NOT MANDATORY TO CHANGE IT
 name: madwell
@@ -52,6 +53,7 @@ dependencies:
   external_path: ^2.0.1
   open_filex: ^4.3.2
   path_provider: ^2.1.5
+  path_provider: ^2.1.5
   webview_flutter: ^4.0.7
   change_app_package_name: ^1.1.0
   vibration: ^3.1.3
@@ -86,6 +88,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -102,7 +105,7 @@ flutter:
     - assets/mapTheme/
     - assets/animation/
     - assets/countryCodes/
-    - .env.*
+    - .env.staging
 
   fonts:
     - family: Lexend
