@@ -102,7 +102,7 @@ flutter:
     - assets/mapTheme/
     - assets/animation/
     - assets/countryCodes/
-    - .env
+    - .env.*
 
   fonts:
     - family: Lexend

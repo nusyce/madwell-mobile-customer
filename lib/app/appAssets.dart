@@ -5,16 +5,16 @@ abstract class AppAssets {
   // Branding assets
   static const String splashScreenBottomLogo =
       "${brandingAssetsPath}splash_screen_bottom_logo.svg";
-  static const String splashLogo = "${brandingAssetsPath}splash_logo.svg";
+  static const String splashLogo = "${brandingAssetsPath}splash_logo.png";
   static const String somethingWentWrong =
       "${brandingAssetsPath}somethingWentWrong.svg";
   static const String placeHolder = "${brandingAssetsPath}place_holder.svg";
   static const String noInternet = "${brandingAssetsPath}noInternet.svg";
   static const String noDataFound = "${brandingAssetsPath}no_data_found.svg";
   static const String loginLogoLight =
-      "${brandingAssetsPath}login_logo_light.svg";
+      "${brandingAssetsPath}login_logo_light.png";
   static const String loginLogoDark =
-      "${brandingAssetsPath}login_logo_dark.svg";
+      "${brandingAssetsPath}login_logo_dark.png";
   static const String locationAccess =
       "${brandingAssetsPath}location_access.svg";
 

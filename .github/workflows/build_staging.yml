@@ -19,7 +19,7 @@ jobs:
 
       - name: Create staging env file
         run: |  
-          cat > .env << 'EOL'
+          cat > .env.staging << 'EOL'
           # Staging Environment Configuration
 
           # API Keys
