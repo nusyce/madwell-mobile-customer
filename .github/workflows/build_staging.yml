@@ -20,34 +20,7 @@ jobs:
       - name: Create staging env file
         run: |  
           cat > .env.staging << 'EOL'
-          # Staging Environment Configuration
-
-          # API Keys
-          GOOGLE_MAPS_API_KEY=${{ secrets.STAGING_GOOGLE_MAPS_API_KEY }}
-          ADMOB_APP_ID=${{ secrets.STAGING_ADMOB_APP_ID }}
-
-          # Firebase Configuration - Android
-          FIREBASE_ANDROID_API_KEY=${{ secrets.STAGING_FIREBASE_ANDROID_API_KEY }}
-          FIREBASE_ANDROID_APP_ID=${{ secrets.STAGING_FIREBASE_ANDROID_APP_ID }}
-          FIREBASE_ANDROID_PROJECT_ID=${{ secrets.STAGING_FIREBASE_PROJECT_ID }}
-          FIREBASE_ANDROID_STORAGE_BUCKET=${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_MESSAGING_SENDER_ID=${{ secrets.STAGING_FIREBASE_MESSAGING_SENDER_ID }}
-
-          # Firebase Configuration - iOS
-          FIREBASE_IOS_API_KEY=${{ secrets.STAGING_FIREBASE_IOS_API_KEY }}
-          FIREBASE_IOS_APP_ID=${{ secrets.STAGING_FIREBASE_IOS_APP_ID }}
-          FIREBASE_IOS_PROJECT_ID=${{ secrets.STAGING_FIREBASE_PROJECT_ID }}
-          FIREBASE_IOS_STORAGE_BUCKET=${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_IOS_CLIENT_ID=${{ secrets.STAGING_FIREBASE_IOS_CLIENT_ID }}
-          FIREBASE_IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
-
-          # API Configuration
-          API_BASE_URL=${{ secrets.STAGING_API_BASE_URL }}
-
-          # App Configuration
-          APP_NAME=Madwell Staging
-          ANDROID_PACKAGE_NAME=app.madwell.pro.customer.staging
-          IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
+          ${{ secrets.STAGING_ENV }}
           EOL
           
 
@@ -134,7 +107,6 @@ jobs:
   ios:
     name: iOS Staging Build
     runs-on: macos-latest
-    needs: android
 
     steps:
       - name: Checkout source
@@ -142,34 +114,8 @@ jobs:
       
       - name: Create staging env file
         run: |  
-          cat > .env << 'EOL'
-          # Staging Environment Configuration
-
-          # API Keys
-          GOOGLE_MAPS_API_KEY=${{ secrets.STAGING_GOOGLE_MAPS_API_KEY }}
-          ADMOB_APP_ID=${{ secrets.STAGING_ADMOB_APP_ID }}
-
-          # Firebase Configuration - Android
-          FIREBASE_ANDROID_API_KEY=${{ secrets.STAGING_FIREBASE_ANDROID_API_KEY }}
-          FIREBASE_ANDROID_APP_ID=${{ secrets.STAGING_FIREBASE_ANDROID_APP_ID }}
-          FIREBASE_ANDROID_PROJECT_ID=${{ secrets.STAGING_FIREBASE_PROJECT_ID }}
-          FIREBASE_ANDROID_STORAGE_BUCKET=${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_MESSAGING_SENDER_ID=${{ secrets.STAGING_FIREBASE_MESSAGING_SENDER_ID }}
-
-          # Firebase Configuration - iOS
-          FIREBASE_IOS_API_KEY=${{ secrets.STAGING_FIREBASE_IOS_API_KEY }}
-          FIREBASE_IOS_APP_ID=${{ secrets.STAGING_FIREBASE_IOS_APP_ID }}
-          FIREBASE_IOS_PROJECT_ID=${{ secrets.STAGING_FIREBASE_PROJECT_ID }}
-          FIREBASE_IOS_STORAGE_BUCKET=${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_IOS_CLIENT_ID=${{ secrets.STAGING_FIREBASE_IOS_CLIENT_ID }}
-
-          # API Configuration
-          API_BASE_URL=${{ secrets.STAGING_API_BASE_URL }}
-
-          # App Configuration
-          APP_NAME=Madwell Staging
-          ANDROID_PACKAGE_NAME=app.madwell.pro.customer.staging
-          IOS_BUNDLE_ID=${{ secrets.STAGING_IOS_BUNDLE_ID }}
+          cat > .env.staging << 'EOL'
+          ${{ secrets.STAGING_ENV }}
           EOL
 
 

@@ -42,7 +42,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAYMvWe1BHcdPBy_g2mnwU90qzPUYCnF6E',
-    appId: '1:213795493196:android:9202f052770d061c1cebe9',
+    appId: '1:213795493196:android:fa442c141017e4cd1cebe9',
     messagingSenderId: '213795493196',
     projectId: 'madwell-staging-eb57e',
     storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
@@ -50,11 +50,12 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB8O0S2F4WN2u8W6-bOqjLp2AOO1R4jioY',
-    appId: '1:213795493196:ios:2fe6317c27b1f04d1cebe9',
+    appId: '1:213795493196:ios:daf0f13fc57745be1cebe9',
     messagingSenderId: '213795493196',
     projectId: 'madwell-staging-eb57e',
     storageBucket: 'madwell-staging-eb57e.firebasestorage.app',
-    iosClientId: '213795493196-e0h1m93sob8d6417ii56n1vrvd84dnv9.apps.googleusercontent.com',
+    androidClientId: '213795493196-fhu566kcqk7va0g49nii0tk6r6t8nhgb.apps.googleusercontent.com',
+    iosClientId: '213795493196-lj8sovmuplh4sp7td5ul5dri7kaqbu1e.apps.googleusercontent.com',
     iosBundleId: 'app.madwell.pro.customer',
   );
 
