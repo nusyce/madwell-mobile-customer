@@ -11,6 +11,7 @@ on:
 jobs:
   android:
     name: Android Staging Build
+    environment: staging
     runs-on: ubuntu-latest  
 
     steps:
@@ -20,7 +21,7 @@ jobs:
       - name: Create staging env file
         run: |  
           cat > .env.staging << 'EOL'
-          ${{ secrets.STAGING_ENV }}
+          ${{ secrets.ENV_FILE }}
           EOL
           
 
@@ -39,7 +40,7 @@ jobs:
       - name: Update google-services.json for staging
         run: |
           cat > android/app/google-services.json << 'EOL'
-          ${{ secrets.STAGING_GOOGLE_SERVICES_JSON }}
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
           EOL
 
       - name: Setup Android signing
@@ -80,8 +81,8 @@ jobs:
       - name: Deploy to Firebase App Distribution (APK)
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
-          appId: ${{ secrets.STAGING_FIREBASE_ANDROID_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT_JSON }}
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: testers
           file: build/app/outputs/flutter-apk/app-staging-release.apk
           releaseNotes: "Staging build from GitHub Actions - commit ${{ github.sha }}"
