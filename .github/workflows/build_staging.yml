@@ -108,6 +108,7 @@ jobs:
   ios:
     name: iOS Staging Build
     runs-on: macos-latest
+    environment: staging
 
     steps:
       - name: Checkout source
@@ -116,7 +117,7 @@ jobs:
       - name: Create staging env file
         run: |  
           cat > .env.staging << 'EOL'
-          ${{ secrets.STAGING_ENV }}
+          ${{ secrets.ENV_FILE }}
           EOL
 
 
@@ -135,7 +136,7 @@ jobs:
       - name: Update GoogleService-Info.plist for staging
         run: |
           cat > ios/Runner/GoogleService-Info.plist << 'EOL'
-          ${{ secrets.STAGING_GOOGLE_SERVICE_INFO_PLIST }}
+          ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
           EOL
 
       - name: Create Xcode Scheme for Staging
@@ -162,9 +163,9 @@ jobs:
 
       - name: Decode Apple certificates & profiles
         env:
-          IOS_CERTIFICATE_BASE64: ${{ secrets.STAGING_IOS_CERTIFICATE_BASE64 }}
-          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.STAGING_IOS_PROVISION_PROFILE_BASE64 }}
-          IOS_KEYCHAIN_PASSWORD: ${{ secrets.STAGING_IOS_KEYCHAIN_PASSWORD }}
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
         run: |
           mkdir -p ~/certs
           echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > ~/certs/cert.p12
@@ -172,8 +173,8 @@ jobs:
 
       - name: Build & Sign IPA for TestFlight
         env:
-          MATCH_PASSWORD: ${{ secrets.STAGING_MATCH_PASSWORD }}
-          APP_STORE_CONNECT_API_KEY: ${{ secrets.STAGING_APP_STORE_CONNECT_API_KEY }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: |
           cd ios
           fastlane build_staging
