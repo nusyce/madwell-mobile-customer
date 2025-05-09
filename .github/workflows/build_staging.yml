@@ -186,6 +186,13 @@ jobs:
       - name: Install Dart dependencies
         run: flutter pub get --no-precompile
 
+      - name: Fix app_settings dependency issue
+        run: |
+          # Pin app_settings to v5.1.0 to avoid Swift compiler error
+          sed -i '' 's/app_settings: \^5.0.0/app_settings: 5.1.0/' pubspec.yaml
+          # Update dependencies with the pinned version
+          flutter pub get --no-precompile
+
       - name: Update GoogleService-Info.plist for staging
         run: |
           cat > ios/Runner/GoogleService-Info.plist << 'EOL'
