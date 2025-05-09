@@ -205,7 +205,7 @@ jobs:
 
           # Create variables to store the extracted profile info
           echo "Decoding provision profile..."
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode --output $PROVISION_PATH
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > $PROVISION_PATH
 
           # Install provisioning profile
           echo "Installing provisioning profile..."
@@ -232,17 +232,39 @@ jobs:
           echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
           echo "PROFILE_TEAM=$PROFILE_TEAM" >> $GITHUB_ENV
 
-          # Import certificate to keychain
+          # Import certificate to keychain - fix for MAC verification failure
           echo "Creating keychain..."
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
           echo "Decoding distribution certificate..."
-          echo -n "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode --output $CERTIFICATE_PATH
+          # Use proper base64 decoding for certificate (this might vary by OS)
+          # Try alternative base64 decode method to ensure proper binary format
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS base64 requires -D for decode
+            echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -D > $CERTIFICATE_PATH
+          else
+            # Linux and others typically use -d
+            echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -d > $CERTIFICATE_PATH
+          fi
+
+          # Verify certificate file exists and has size
+          if [ ! -s "$CERTIFICATE_PATH" ]; then
+            echo "Error: Certificate file is empty or doesn't exist"
+            exit 1
+          fi
+          
+          echo "Certificate size: $(wc -c < $CERTIFICATE_PATH) bytes"
 
           echo "Importing certificate to keychain..."
-          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          # Import with more explicit options and error handling
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH || {
+            echo "Certificate import failed. Trying alternative options..."
+            # Try without specifying certificate type
+            security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -k $KEYCHAIN_PATH
+          }
+
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           echo "Setting key partition list..."
