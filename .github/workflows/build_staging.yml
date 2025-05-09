@@ -264,6 +264,10 @@ jobs:
           '
           
           pod install --repo-update --clean-install
+          
+          # Fix Rive plugin issue with Staging configuration
+          chmod +x rive_fix.rb
+          ./rive_fix.rb
 
       - name: Import Certificates and Profiles
         env:
@@ -397,7 +401,18 @@ jobs:
       - name: Build iOS
         run: |
           # Build with manual signing using Staging configuration
-          flutter build ios --release --no-codesign --dart-define=ENV=staging
+          flutter build ios --release --no-codesign --dart-define=ENV=staging --config-only
+          
+          # Apply specific fixes for Rive plugin in Staging configuration
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Staging \
+            -sdk iphoneos \
+            -quiet \
+            clean build \
+            CODE_SIGNING_ALLOWED=NO \
+            GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1'
 
       - name: Create Export Options
         run: |
