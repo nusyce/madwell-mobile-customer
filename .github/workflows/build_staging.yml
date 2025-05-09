@@ -192,10 +192,44 @@ jobs:
           ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
           EOL
 
+      - name: Update Podfile for Staging configuration
+        run: |
+          cd ios
+          # Add Staging configuration to Podfile if not already added
+          if ! grep -q "Staging" Podfile; then
+            sed -i.bak '/# Prepare symlinks/i\
+          # Add Staging configuration for CocoaPods\
+          config.build_settings["POD_CONFIGURATION_BUILD_DIR"] = "${PODS_CONFIGURATION_BUILD_DIR}/#{config.name}"\
+          elsif config.name == "Staging"\
+          ' Podfile
+          fi
+          
+          # Create Podfile.properties.json with Staging configuration
+          cat > Podfile.properties.json << EOL
+          {
+            "use_frameworks!": true,
+            "configs": {
+              "Debug": {
+                "use_frameworks!": true
+              },
+              "Release": {
+                "use_frameworks!": true
+              },
+              "Staging": {
+                "use_frameworks!": true
+              }
+            }
+          }
+          EOL
+          
+          # Create a sym-link of GoogleMaps.framework in the Frameworks folder
+          mkdir -p Flutter/Flutter.framework/Modules
+          echo "link:" > Flutter/Flutter.framework/Modules/module.modulemap
+
       - name: Install CocoaPods
         run: |
           cd ios
-          pod install --repo-update --clean-install --deployment
+          pod install --repo-update --clean-install
 
       - name: Import Certificates and Profiles
         env:
