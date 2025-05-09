@@ -160,7 +160,14 @@ jobs:
 
           # Import certificate to keychain
           echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
-          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          echo "Certificate decoded to /tmp/certificate.p12"
+          ls -l /tmp/certificate.p12
+          
+          # Verify keychain is accessible
+          security list-keychains
+          
+          # Try import with verbose output
+          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -v
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
 
           # Create and copy provisioning profile
