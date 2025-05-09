@@ -314,11 +314,30 @@ jobs:
             -allowProvisioningUpdates \
             -quiet
 
+      - name: Find IPA for artifact upload
+        id: find_ipa
+        run: |
+          # List all IPA files in the build directory
+          echo "Looking for IPA files..."
+          find ios/build -name "*.ipa" | sort
+          
+          # Find the IPA file
+          IPA_FILE=$(find ios/build -name "*.ipa" | head -n 1)
+          
+          # Exit if no IPA found
+          if [ -z "$IPA_FILE" ]; then
+            echo "Error: No IPA file found!"
+            exit 1
+          fi
+          
+          echo "Found IPA: $IPA_FILE"
+          echo "ipa_path=$IPA_FILE" >> $GITHUB_OUTPUT
+
       - name: Upload iOS Staging IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-staging-ipa
-          path: ios/build/ios/Runner.ipa
+          path: ${{ steps.find_ipa.outputs.ipa_path }}
           retention-days: 3
 
       - name: Deploy to Firebase App Distribution (iOS)
@@ -327,7 +346,7 @@ jobs:
           appId: ${{ secrets.FIREBASE_IOS_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: testers
-          file: ios/build/ios/Runner.ipa
+          file: ${{ steps.find_ipa.outputs.ipa_path }}
           releaseNotes: "iOS Staging build from GitHub Actions - commit ${{ github.sha }}"
 
       - name: Setup Ruby for Fastlane

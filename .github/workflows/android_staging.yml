@@ -56,24 +56,90 @@ jobs:
           EOL
 
       - name: Build Android Staging APK
-        run: flutter build apk --flavor staging --dart-define=ENV=staging --split-per-abi
+        run: |
+          flutter build apk --flavor staging --dart-define=ENV=staging --split-per-abi
+          
+          # List the actual output files to verify paths
+          echo "Checking APK output directory..."
+          find build -name "*.apk" | sort
+          
+          # Create a directory listing for debugging
+          ls -la build/app/outputs/flutter-apk/
 
       - name: Build Android Staging App Bundle
-        run: flutter build appbundle --flavor staging --dart-define=ENV=staging
-        
+        run: |
+          flutter build appbundle --flavor staging --dart-define=ENV=staging
+          
+          # List the actual output files to verify paths
+          echo "Checking AAB output directory..."
+          find build -name "*.aab" | sort
+          
+          # Create a directory listing for debugging
+          ls -la build/app/outputs/bundle/
+
+      - name: Find AAB for artifact upload
+        id: find_aab
+        run: |
+          # Find the staging release AAB
+          STAGING_AAB=$(find build -name "*staging*release*.aab" | head -n 1)
+          
+          # If no staging AAB is found, try to find any release AAB
+          if [ -z "$STAGING_AAB" ]; then
+            echo "No staging AAB found, looking for any release AAB..."
+            STAGING_AAB=$(find build -name "*release*.aab" | head -n 1)
+          fi
+          
+          # Exit if no AAB found
+          if [ -z "$STAGING_AAB" ]; then
+            echo "Error: No release AAB found!"
+            exit 1
+          fi
+          
+          echo "Found AAB: $STAGING_AAB"
+          echo "aab_path=$STAGING_AAB" >> $GITHUB_OUTPUT
+
       - name: Upload Android Staging APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-staging-apk
-          path: build/app/outputs/flutter-apk/app-staging-release.apk
+          path: |
+            build/app/outputs/flutter-apk/*staging*release*.apk
+            build/app/outputs/apk/staging/release/*.apk
           retention-days: 3
 
       - name: Upload Android Staging AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-staging-aab
-          path: build/app/outputs/bundle/stagingRelease/app-staging-release.aab
+          path: ${{ steps.find_aab.outputs.aab_path }}
           retention-days: 3
+
+      - name: Find APK for Firebase Distribution
+        id: find_apk
+        run: |
+          # Find the arm64-v8a APK (preferred architecture)
+          ARM64_APK=$(find build -name "*staging*arm64-v8a*release*.apk" | head -n 1)
+          
+          # If no arm64 APK is found, try to find any staging release APK
+          if [ -z "$ARM64_APK" ]; then
+            echo "No arm64 APK found, looking for any staging release APK..."
+            ARM64_APK=$(find build -name "*staging*release*.apk" | head -n 1)
+          fi
+          
+          # If still no APK found, try broader search
+          if [ -z "$ARM64_APK" ]; then
+            echo "No staging release APK found, looking for any release APK..."
+            ARM64_APK=$(find build -name "*release*.apk" | head -n 1)
+          fi
+          
+          # Exit if no APK found
+          if [ -z "$ARM64_APK" ]; then
+            echo "Error: No release APK found!"
+            exit 1
+          fi
+          
+          echo "Found APK: $ARM64_APK"
+          echo "apk_path=$ARM64_APK" >> $GITHUB_OUTPUT
 
       - name: Deploy to Firebase App Distribution (APK)
         uses: wzieba/Firebase-Distribution-Github-Action@v1
@@ -81,7 +147,7 @@ jobs:
           appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: testers
-          file: build/app/outputs/flutter-apk/app-staging-release.apk
+          file: ${{ steps.find_apk.outputs.apk_path }}
           releaseNotes: "Staging build from GitHub Actions - commit ${{ github.sha }}"
 
       - name: Setup Ruby for Fastlane
