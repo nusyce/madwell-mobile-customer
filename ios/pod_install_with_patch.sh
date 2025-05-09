@@ -1,48 +1,83 @@
 #!/bin/bash
 
-# This script installs pods while bypassing the Swift version conflict
+# This script handles pod installation with Swift version patches
+# It creates necessary files and environment settings to force Swift 5.0
 
-echo "Running patched pod install..."
+echo "Running pod install with Swift version patch..."
 
-# First, make sure we have a clean state
-rm -rf Pods
-rm -f Podfile.lock
+# Create .swift-version file
+echo "5.0" > .swift-version
 
-# Fix Swift version in the main project
-ruby fix_swift_version.rb
+# Create a temporary environment file for use with pod install
+cat > .xcode-version << 'EOL'
+5.0
+EOL
 
-# Create temp directory for patching CocoaPods
-TEMP_DIR=$(mktemp -d)
-echo "Created temp directory: $TEMP_DIR"
+# Clean existing pods
+if [ -d "Pods" ]; then
+  echo "Cleaning existing Pods directory..."
+  rm -rf Pods
+fi
 
-# Create wrapper script for pod command that modifies the environment
-cat > $TEMP_DIR/pod << 'EOF'
-#!/bin/bash
-# Get the path to the real pod executable
-REAL_POD=$(which -a pod | grep -v $TEMP_DIR | head -n 1)
+if [ -f "Podfile.lock" ]; then
+  echo "Removing Podfile.lock..."
+  rm -f Podfile.lock
+fi
 
-# Set environment variables to bypass Swift version checks
-export COCOAPODS_DISABLE_STATS=true
-export SKIP_SWIFT_VERSION_CHECK=1
+# Try to patch CocoaPods
+if [ -f "disable_cocoapods_swift_checks.rb" ]; then
+  echo "Attempting to patch CocoaPods..."
+  ruby disable_cocoapods_swift_checks.rb || true
+fi
 
-# Run the real pod command with all arguments
-COCOAPODS_SKIP_SWIFT_VERSION_CHECK=1 $REAL_POD "$@"
-EOF
+# Set environment variables to help with Swift version
+export SWIFT_VERSION=5.0
 
-# Make the wrapper executable
-chmod +x $TEMP_DIR/pod
+# Force Swift 5.0 for all Pod targets by patching project.pbxproj files after pod install
+patch_swift_version() {
+  echo "Patching Swift version in Xcode project files..."
+  
+  # Fix main project
+  if [ -f "Runner.xcodeproj/project.pbxproj" ]; then
+    echo "Patching Runner.xcodeproj/project.pbxproj"
+    sed -i '' 's/SWIFT_VERSION = "";/SWIFT_VERSION = "5.0";/g' Runner.xcodeproj/project.pbxproj
+    sed -i '' 's/SWIFT_VERSION = \([^5].*\);/SWIFT_VERSION = "5.0";/g' Runner.xcodeproj/project.pbxproj
+  fi
+  
+  # Fix Pods project
+  if [ -f "Pods/Pods.xcodeproj/project.pbxproj" ]; then
+    echo "Patching Pods/Pods.xcodeproj/project.pbxproj"
+    sed -i '' 's/SWIFT_VERSION = "";/SWIFT_VERSION = "5.0";/g' Pods/Pods.xcodeproj/project.pbxproj
+    sed -i '' 's/SWIFT_VERSION = \([^5].*\);/SWIFT_VERSION = "5.0";/g' Pods/Pods.xcodeproj/project.pbxproj
+  fi
+}
 
-# Add the temp directory to the front of the PATH
-export PATH="$TEMP_DIR:$PATH"
+# First attempt: standard pod install
+echo "Attempting standard pod install..."
+COCOAPODS_DISABLE_STATS=true pod install --verbose || true
 
-# Run pod install with the wrapper
-pod install --verbose --no-repo-update
+# Apply Swift version fix regardless of success
+patch_swift_version
 
-# Clean up
-rm -rf $TEMP_DIR
+# Second attempt with repo update if first failed
+if [ ! -d "Pods" ] || [ ! -f "Pods/Manifest.lock" ]; then
+  echo "First attempt failed, trying with repo update..."
+  COCOAPODS_DISABLE_STATS=true pod install --repo-update --verbose || true
+  patch_swift_version
+fi
 
-# Apply Swift version fixes after installation
-ruby fix_cocoapods.rb
-ruby fix_swift_version.rb
+# If we still don't have Pods, try one last time with --no-integrate
+if [ ! -d "Pods" ] || [ ! -f "Pods/Manifest.lock" ]; then
+  echo "Still failing, trying with --no-integrate..."
+  COCOAPODS_DISABLE_STATS=true pod install --no-integrate --verbose || true
+  patch_swift_version
+fi
 
-echo "Pod installation completed" 
+# Verify Pod installation
+if [ -d "Pods" ] && [ -f "Pods/Manifest.lock" ]; then
+  echo "Pod installation succeeded"
+else
+  echo "WARNING: Pod installation may have failed, but continuing build process"
+fi
+
+echo "Pod install with patches completed" 

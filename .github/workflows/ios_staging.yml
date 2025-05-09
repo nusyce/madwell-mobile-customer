@@ -118,20 +118,60 @@ jobs:
           mkdir -p Flutter/Flutter.framework/Modules
           echo "link:" > Flutter/Flutter.framework/Modules/module.modulemap
 
-      - name: Install CocoaPods
+      - name: Prepare iOS build scripts
         run: |
-          cd ios
-          pod install --repo-update --clean-install
+          # Create all necessary script files
+          cat > ios/fix_swift_version.rb << 'EOL'
+          #!/usr/bin/env ruby
+          # This script ensures all Swift files use version 5.0
+          
+          require 'fileutils'
+          
+          def fix_swift_version(project_file)
+            return unless File.exist?(project_file)
+            
+            puts "Fixing Swift version in #{project_file}"
+            content = File.read(project_file)
+            
+            # Replace any Swift version with 5.0
+            content.gsub!(/SWIFT_VERSION = .*;/, 'SWIFT_VERSION = "5.0";')
+            
+            # Write back
+            File.write(project_file, content)
+            puts "Fixed Swift version in #{project_file}"
+          end
+          
+          # Fix main project
+          fix_swift_version("Runner.xcodeproj/project.pbxproj")
+          
+          # Fix Pods project if it exists
+          fix_swift_version("Pods/Pods.xcodeproj/project.pbxproj")
+          
+          # Create .swift-version file
+          File.write(".swift-version", "5.0")
+          
+          puts "Swift version fixed in all projects"
+          EOL
+          
+          # Create Swift version configuration file
+          echo "5.0" > ios/.swift-version
+          
+          # Make scripts executable
+          chmod +x ios/fix_swift_version.rb
+          chmod +x ios/disable_cocoapods_swift_checks.rb
+          chmod +x ios/pod_install_with_patch.sh
+          chmod +x ios/rive_fix.rb
+          
+          echo "iOS build scripts prepared"
 
       - name: Fix Rive plugin issues
         run: |
           cd ios
           
           # Run the Rive fix script
-          chmod +x rive_fix.rb
-          ./rive_fix.rb
+          ruby rive_fix.rb
           
-          # Additional manual fix for any rive_types.hpp files
+          # Direct fix for any rive_types.hpp files
           find . -name "rive_types.hpp" -exec sh -c 'echo "Fixing $0"; sed -i.bak "s/#error \"can'\''t determine if we'\''re debug or release\"/#define NDEBUG 1/" $0' {} \;
           
           # Add staging configuration to any remaining Xcode projects that might need it
@@ -207,8 +247,8 @@ jobs:
 
       - name: Install required Ruby gems
         run: |
-          chmod +x ios/setup_ruby_env.sh
-          ios/setup_ruby_env.sh
+          gem install cocoapods -v 1.15.2
+          gem install fastlane -v 2.219.0
 
       - name: Create Xcode Scheme for Staging
         run: |
@@ -247,10 +287,6 @@ jobs:
             fi
           fi
           
-          # Create and run the Pod signing fix script
-          chmod +x fix_pod_signing.rb
-          ruby fix_pod_signing.rb
-          
           # Set explicit provisioning profile in project.pbxproj for Runner target only
           echo "Updating project.pbxproj with provisioning profile UUID: $PROFILE_UUID"
           # Update only the main Runner target, not Pod targets
@@ -266,61 +302,35 @@ jobs:
             sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Pods/Pods.xcodeproj/project.pbxproj
           fi
 
-      - name: Prepare iOS build scripts
+      - name: Install CocoaPods with Swift version patch
         run: |
-          # Ensure all necessary scripts exist and are executable
-          echo "Checking iOS script files..."
+          cd ios
           
-          # Create any missing script files
-          touch ios/clean_xcode_project.sh
-          touch ios/fix_swift_version.rb
-          touch ios/fix_podfile.rb
-          touch ios/fix_cocoapods.rb
-          touch ios/manual_pod_install.sh
-          touch ios/disable_cocoapods_swift_checks.rb
-          touch ios/rive_fix.rb
+          # Run the patched pod install script
+          ./pod_install_with_patch.sh
           
-          # Make all scripts executable
-          chmod +x ios/clean_xcode_project.sh
-          chmod +x ios/fix_swift_version.rb
-          chmod +x ios/fix_podfile.rb
-          chmod +x ios/fix_cocoapods.rb
-          chmod +x ios/manual_pod_install.sh
-          chmod +x ios/disable_cocoapods_swift_checks.rb
-          chmod +x ios/rive_fix.rb
-          
-          echo "iOS script files prepared"
+          # Verify installation
+          if [ -d "Pods" ] && [ -f "Pods/Manifest.lock" ]; then
+            echo "CocoaPods installation successful"
+          else
+            echo "Warning: CocoaPods installation may have issues, but continuing"
+          fi
 
       - name: Build iOS
         run: |
+          # Patch Swift version in project files
+          echo "Setting consistent Swift version in project files..."
+          ruby ios/fix_swift_version.rb
+          
           # Fix for Rive plugin build mode detection issue
           echo "Fixing Rive plugin build mode detection..."
           find ios/.symlinks/plugins -name "rive_types.hpp" -exec sed -i '' 's/#error "can'\''t determine if we'\''re debug or release"/#define NDEBUG 1/' {} \;
           
-          # Patch CocoaPods directly
-          echo "Patching CocoaPods to force Swift version 5.0..."
-          ruby ios/disable_cocoapods_swift_checks.rb
-          
-          # Change to iOS directory and prepare project
-          cd ios
-          
-          # Clean the project state
-          echo "Cleaning project state..."
-          rm -rf Pods
-          rm -f Podfile.lock
-          
-          # Fix Swift version in project files
-          echo "Setting consistent Swift version in project files..."
-          ruby fix_swift_version.rb
-          
           # Fix Swift version in pbxproj file directly
           echo "Applying direct Swift version fix to project.pbxproj..."
+          cd ios
           sed -i '' 's/SWIFT_VERSION = "";/SWIFT_VERSION = "5.0";/g' Runner.xcodeproj/project.pbxproj
           sed -i '' 's/SWIFT_VERSION = \([^5].*\);/SWIFT_VERSION = "5.0";/g' Runner.xcodeproj/project.pbxproj
-          
-          # Run pod install (bypassing Swift version check)
-          echo "Running pod install with Swift version check bypass..."
-          COCOAPODS_DISABLE_STATS=true pod install || true
           
           # Apply Swift version fix to Pods project
           if [ -f "Pods/Pods.xcodeproj/project.pbxproj" ]; then
@@ -333,11 +343,7 @@ jobs:
           echo "Available schemes:"
           xcodebuild -project Runner.xcodeproj -list
           
-          # Back to the project root
-          cd ..
-          
-          # Run xcodebuild directly to avoid Flutter's pod install
-          cd ios
+          # Build the project
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner-staging \
             -configuration Staging \
@@ -382,8 +388,6 @@ jobs:
       - name: Archive and Export IPA
         run: |
           cd ios
-          # Make sure we have required gems
-          gem list cocoapods || gem install cocoapods
           
           # Pod targets should use automatic signing
           for scheme in $(find Pods/Pods.xcodeproj -name "*.xcscheme" | xargs -n 1 basename | sed -E 's/\.xcscheme//'); do
