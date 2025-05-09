@@ -203,33 +203,37 @@ jobs:
       - name: Create Xcode Scheme for Staging
         run: |
           cd ios
-          # Create a new scheme using manual signing
-          xcodebuild -scheme Runner -configuration Release \
+          # Install xcodeproj gem for Ruby script
+          gem install xcodeproj
+          
+          # Create Staging.xcconfig
+          echo "PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging" > Flutter/Staging.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER=Madwell Pro Customer Staging" >> Flutter/Staging.xcconfig
+          echo "DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}" >> Flutter/Staging.xcconfig
+          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> Flutter/Staging.xcconfig
+          echo "CODE_SIGN_STYLE=Manual" >> Flutter/Staging.xcconfig
+          echo "APP_DISPLAY_NAME=Madwell Pro Staging" >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_TARGET=lib/main_staging.dart' >> Flutter/Staging.xcconfig
+          echo '#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"' >> Flutter/Staging.xcconfig
+          echo '#include "Generated.xcconfig"' >> Flutter/Staging.xcconfig
+          
+          # Add Staging configuration to project
+          ruby add_staging_config.rb
+          
+          # Create a new scheme using manual signing with Staging configuration
+          xcodebuild -scheme Runner -configuration Staging \
             -derivedDataPath build/ \
             -allowProvisioningUpdates \
+            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Staging" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
 
       - name: Build iOS
         run: |
-          # Get profile UUID
-          PROFILE_UUID=$(grep UUID -A1 -a ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | grep -io "[-A-Z0-9]\{36\}")
-          echo "Using provisioning profile UUID: $PROFILE_UUID"
-          
-          # Update project.pbxproj to use manual signing
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/' ios/Runner.xcodeproj/project.pbxproj
-          
-          # Create xcconfig file with signing settings
-          mkdir -p ios/Flutter
-          echo "PROVISIONING_PROFILE_SPECIFIER=Madwell Pro Customer Distribution" > ios/Flutter/Release.xcconfig
-          echo "DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGN_STYLE=Manual" >> ios/Flutter/Release.xcconfig
-          
-          # Build with manual signing
-          flutter build ios --release --no-codesign --dart-define=ENV=staging
+          # Build with manual signing using Staging configuration
+          flutter build ios --release --no-codesign --dart-define=ENV=staging --flavor staging
 
       - name: Create Export Options
         run: |
@@ -243,7 +247,7 @@ jobs:
               <key>provisioningProfiles</key>
               <dict>
                   <key>app.madwell.pro.customer.staging</key>
-                  <string>Madwell Pro Customer Distribution</string>
+                  <string>Madwell Pro Customer Staging</string>
               </dict>
               <key>signingCertificate</key>
               <string>Apple Distribution</string>
@@ -262,15 +266,16 @@ jobs:
       - name: Archive and Export IPA
         run: |
           cd ios
-          # Use manual code signing for archive
+          # Use manual code signing for archive with Staging configuration
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
-            -configuration Release \
+            -configuration Staging \
             -archivePath build/Runner.xcarchive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Staging" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             archive
           
           xcodebuild -exportArchive \
