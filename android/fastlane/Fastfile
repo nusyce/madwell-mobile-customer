@@ -8,6 +8,7 @@ platform :android do
     )
     
     upload_to_play_store(
+      json_key: "service_account.json",
       track: 'internal',
       aab: '../build/app/outputs/bundle/stagingRelease/app-staging-release.aab',
       skip_upload_metadata: true,
@@ -25,6 +26,7 @@ platform :android do
     )
     
     upload_to_play_store(
+      json_key: "service_account.json",
       track: 'beta',
       aab: '../build/app/outputs/bundle/release/app-release.aab',
       skip_upload_metadata: true,

@@ -102,8 +102,19 @@ jobs:
           SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
         run: |
           cd android
-          echo "$SUPPLY_JSON_KEY" > service_account.json
-          fastlane staging
+          # Write JSON key to a file, properly handling quotes and formatting
+          echo '${{ secrets.GOOGLE_PLAY_JSON_KEY }}' > service_account.json
+          
+          # Check if file exists and has content
+          if [ -s service_account.json ]; then
+            echo "Service account JSON file created successfully"
+          else
+            echo "Failed to create service account JSON file"
+            exit 1
+          fi
+          
+          # Run Fastlane with bundle exec
+          bundle exec fastlane staging
 
   ios:
     name: iOS Staging Build
