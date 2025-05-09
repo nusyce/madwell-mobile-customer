@@ -153,20 +153,33 @@ jobs:
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
         run: |
           # Create temporary keychain
-          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          security create-keychain -p "${IOS_KEYCHAIN_PASSWORD}" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          security unlock-keychain -p "${IOS_KEYCHAIN_PASSWORD}" build.keychain
           security set-keychain-settings -t 3600 -l ~/Library/Keychains/build.keychain
 
           # Import certificate to keychain
           echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
-          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          
+          # Verify certificate was decoded properly
+          echo "Certificate size: $(stat -f%z /tmp/certificate.p12) bytes"
+          
+          # Try import with explicit settings
+          security import /tmp/certificate.p12 -k build.keychain -P "${IOS_CERTIFICATE_PASSWORD}" -T /usr/bin/codesign -f pkcs12 || {
+            echo "Failed to import certificate. Trying alternative format..."
+            security import /tmp/certificate.p12 -k build.keychain -P "${IOS_CERTIFICATE_PASSWORD}" -T /usr/bin/codesign -f pkg8
+          }
+          
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${IOS_KEYCHAIN_PASSWORD}" build.keychain
 
           # Create and copy provisioning profile
           echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          UUID=$(security cms -D -i /tmp/profile.mobileprovision | plutil -extract UUID raw -)
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
+          
+          # List available identities
+          security find-identity -v -p codesigning build.keychain
 
       - name: Create Xcode Scheme for Staging
         run: |
