@@ -7,11 +7,7 @@ on:
       - staging
       - deploy-to-playstore
   workflow_dispatch:  # Allows manual triggering
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  
 jobs:
   android:
     name: Android Staging Build
@@ -35,29 +31,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.29.1'
-          cache: true
-
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            android/.gradle
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Cache Flutter dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-            .pub-cache
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
 
       - name: Confirm Flutter & Dart versions
         run: flutter --version
@@ -116,7 +89,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-          bundler-cache: true # Uses cache for gems
+          bundler-cache: false
 
       - name: Deploy to Play Store (Internal Testing)
         env:
@@ -159,26 +132,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.29.1'
-          cache: true
-
-      - name: Cache Flutter dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-            .pub-cache
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
-
-      - name: Cache CocoaPods
-        uses: actions/cache@v3
-        with:
-          path: ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
 
       - name: Confirm Flutter & Dart versions
         run: flutter --version
@@ -233,101 +186,201 @@ jobs:
           mkdir -p Flutter/Flutter.framework/Modules
           echo "link:" > Flutter/Flutter.framework/Modules/module.modulemap
 
+      - name: Import Certificates and Profiles
+        env:
+          DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          # Create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PROVISION_PATH=$RUNNER_TEMP/build_profile.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # Extract the profile info from mobileprovision file
+          PROFILE_UUID=""
+          PROFILE_NAME=""
+          PROFILE_TEAM=""
+
+          # Create variables to store the extracted profile info
+          echo "Decoding provision profile..."
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode --output $PROVISION_PATH
+
+          # Install provisioning profile
+          echo "Installing provisioning profile..."
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PROVISION_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+          # Extract UUID using PlistBuddy or strings+grep
+          PROFILE_UUID=$(security cms -D -i $PROVISION_PATH | plutil -extract UUID xml1 -o - - | plutil -p -)
+          PROFILE_UUID=$(echo $PROFILE_UUID | sed 's/"//g')
+          echo "Provisioning profile UUID: $PROFILE_UUID"
+          
+          # Extract provisioning profile name
+          PROFILE_NAME=$(security cms -D -i $PROVISION_PATH | plutil -extract Name xml1 -o - - | plutil -p -)
+          PROFILE_NAME=$(echo $PROFILE_NAME | sed 's/"//g')
+          echo "Provisioning profile name: $PROFILE_NAME"
+          
+          # Extract team ID
+          PROFILE_TEAM=$(security cms -D -i $PROVISION_PATH | plutil -extract TeamIdentifier.0 xml1 -o - - | plutil -p -)
+          PROFILE_TEAM=$(echo $PROFILE_TEAM | sed 's/"//g')
+          echo "Team ID: $PROFILE_TEAM"
+          
+          # Set environment variables for use in subsequent steps
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+          echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+          echo "PROFILE_TEAM=$PROFILE_TEAM" >> $GITHUB_ENV
+
+          # Import certificate to keychain
+          echo "Creating keychain..."
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          echo "Decoding distribution certificate..."
+          echo -n "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode --output $CERTIFICATE_PATH
+
+          echo "Importing certificate to keychain..."
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          echo "Setting key partition list..."
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
       - name: Install CocoaPods
         run: |
           cd ios
           
-          # Update Podfile to configure proper code signing for pods in Staging configuration
-          sed -i '' 's/post_install do |installer|/post_install do |installer|\n  # Create Staging configuration for all pods\n  installer.pods_project.build_configurations.each do |config|\n    if config.name == "Release"\n      staging_config = config.dup\n      staging_config.name = "Staging"\n      installer.pods_project.build_configurations << staging_config\n    end\n  end\n/' Podfile
-          
-          # Add code signing configuration settings for pods - directly edit the file instead of using sed
-          ruby -e '
-            podfile_content = File.read("Podfile")
-            # Find the position to insert the code
-            insert_pos = podfile_content.index("target.build_configurations.each do |config|")
-            if insert_pos
-              # Find the next line start position
-              next_line_pos = podfile_content.index("\n", insert_pos) + 1
-              # Insert our code after that line
-              new_content = podfile_content[0...next_line_pos] + 
-                "      # Set automatic code signing for all pods to avoid provisioning profile errors\n" +
-                "      config.build_settings[\"CODE_SIGN_STYLE\"] = \"Automatic\"\n" +
-                "      config.build_settings[\"DEVELOPMENT_TEAM\"] = \"\"\n" +
-                "      config.build_settings.delete(\"PROVISIONING_PROFILE_SPECIFIER\")\n" +
-                "      config.build_settings.delete(\"PROVISIONING_PROFILE\")\n" +
-                podfile_content[next_line_pos..-1]
-              File.write("Podfile", new_content)
-              puts "Successfully updated Podfile"
-            else
-              puts "Warning: Could not find target.build_configurations in Podfile"
+          # Create better Podfile modifications for code signing
+          cat > podfile_update.rb << 'EOL'
+          #!/usr/bin/env ruby
+
+          # Read the Podfile content
+          podfile_path = 'Podfile'
+          content = File.read(podfile_path)
+
+          # Add Staging configuration duplication
+          if !content.include?('installer.pods_project.build_configurations.each do |config|')
+            content.gsub!(/post_install do \|installer\|/) do |match|
+              match + "\n  # Create Staging configuration for all pods\n" +
+                     "  installer.pods_project.build_configurations.each do |config|\n" +
+                     "    if config.name == \"Release\"\n" +
+                     "      staging_config = config.dup\n" +
+                     "      staging_config.name = \"Staging\"\n" +
+                     "      installer.pods_project.build_configurations << staging_config\n" +
+                     "    end\n" +
+                     "  end\n"
             end
-          '
+          end
+
+          # Add automatic code signing settings for all pod targets
+          if !content.include?('config.build_settings.delete("PROVISIONING_PROFILE_SPECIFIER")')
+            content.gsub!(/target\.build_configurations\.each do \|config\|/) do |match|
+              match + "\n      # Set automatic code signing for all pods to avoid provisioning profile errors\n" +
+                     "      config.build_settings[\"CODE_SIGN_STYLE\"] = \"Automatic\"\n" +
+                     "      config.build_settings[\"DEVELOPMENT_TEAM\"] = \"\"\n" +
+                     "      config.build_settings.delete(\"PROVISIONING_PROFILE_SPECIFIER\")\n" +
+                     "      config.build_settings.delete(\"PROVISIONING_PROFILE\")\n" +
+                     "      config.build_settings[\"CODE_SIGN_IDENTITY\"] = \"\"\n" +
+                     "      config.build_settings[\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\"] = \"\"\n" +
+                     "      # Handle framework-specific settings\n" +
+                     "      if target.product_type == \"com.apple.product-type.framework\"\n" +
+                     "        config.build_settings[\"CODE_SIGNING_ALLOWED\"] = \"NO\"\n" +
+                     "        config.build_settings[\"CODE_SIGNING_REQUIRED\"] = \"NO\"\n" +
+                     "      end\n"
+            end
+          end
+
+          # Write back the modified Podfile
+          File.write(podfile_path, content)
+          puts "Successfully updated Podfile with proper code signing configurations"
+          EOL
+          
+          chmod +x podfile_update.rb
+          ruby podfile_update.rb
           
           pod install --repo-update --clean-install
           
           # Fix Rive plugin issue with Staging configuration
           chmod +x rive_fix.rb
           ./rive_fix.rb
-
-      - name: Import Certificates and Profiles
-        env:
-          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
-          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
-          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-        run: |
-          # Create temporary keychain
-          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -t 3600 -u build.keychain
-
-          # Import certificate to keychain
-          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
           
-          # Verify certificate can be read with password
-          if ! openssl pkcs12 -in /tmp/certificate.p12 -noout -passin pass:"$IOS_CERTIFICATE_PASSWORD" 2>/dev/null; then
-            echo "Certificate password verification failed"
+          # Create a comprehensive pod signing fix script
+          cat > fix_pod_signing.rb << 'EOL'
+          #!/usr/bin/env ruby
+          require 'xcodeproj'
+          
+          project_path = 'Pods/Pods.xcodeproj'
+          puts "Opening project at #{project_path}..."
+          
+          begin
+            project = Xcodeproj::Project.open(project_path)
+            
+            # Step 1: Fix build configuration settings at the project level
+            project.build_configurations.each do |config|
+              puts "Setting automatic signing for project build configuration: #{config.name}"
+              config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+              config.build_settings['DEVELOPMENT_TEAM'] = ''
+              config.build_settings.delete('PROVISIONING_PROFILE_SPECIFIER')
+              config.build_settings.delete('PROVISIONING_PROFILE')
+            end
+            
+            # Step 2: Fix build configuration settings for all targets
+            project.targets.each do |target|
+              puts "Processing target: #{target.name}"
+              
+              # Iterate through all build configurations for the target
+              target.build_configurations.each do |config|
+                puts "  - Setting automatic signing for configuration: #{config.name}"
+                
+                # Ensure CODE_SIGN_STYLE is Automatic
+                config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+                
+                # Remove all provisioning profile settings
+                config.build_settings.delete('PROVISIONING_PROFILE_SPECIFIER')
+                config.build_settings.delete('PROVISIONING_PROFILE')
+                config.build_settings.delete('DEVELOPMENT_TEAM')
+                
+                # Set CODE_SIGN_IDENTITY to empty for libraries that don't need signing
+                config.build_settings['CODE_SIGN_IDENTITY'] = ''
+                config.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = ''
+                
+                # Set PROVISIONING_PROFILE_SPECIFIER to empty
+                config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+                
+                # Handle special cases for Frameworks vs normal targets
+                is_framework = target.product_type == "com.apple.product-type.framework"
+                if is_framework
+                  # Frameworks should have these settings
+                  config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+                  config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+                  config.build_settings['SKIP_INSTALL'] = 'YES'
+                end
+                
+                # Fix for the specific "does not support provisioning profiles" error
+                if config.name == 'Staging'
+                  # Apply extra fixes for staging configuration
+                  config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+                  config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'NDEBUG=1' unless config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].include?('NDEBUG=1')
+                  config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'NS_BLOCK_ASSERTIONS=1' unless config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].include?('NS_BLOCK_ASSERTIONS=1')
+                  config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FLUTTER_RELEASE=1' unless config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].include?('FLUTTER_RELEASE=1')
+                end
+              end
+            end
+            
+            # Save changes to the project
+            project.save
+            puts "Successfully updated project settings for all targets."
+          rescue => e
+            puts "Error updating project: #{e.message}"
+            puts e.backtrace.join("\n")
             exit 1
-          fi
+          end
+          EOL
           
-          # Extract certificate and private key
-          openssl pkcs12 -in /tmp/certificate.p12 -clcerts -nokeys -out /tmp/cert.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD"
-          openssl pkcs12 -in /tmp/certificate.p12 -nocerts -out /tmp/key.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
-          openssl rsa -in /tmp/key.pem -out /tmp/key_decrypted.pem -passin pass:temp123
-          
-          # Import certificate and key directly
-          security import /tmp/cert.pem -k build.keychain -T /usr/bin/codesign
-          security import /tmp/key_decrypted.pem -k build.keychain -T /usr/bin/codesign
-
-          # Update keychain settings
-          security set-keychain-settings -t 3600 -l build.keychain
-          security list-keychains -s build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
-
-          # Create and copy provisioning profile
-          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          
-          # Get the UUID from the profile
-          PROFILE_UUID=$(grep UUID -A1 -a /tmp/profile.mobileprovision | grep -io "[-A-Z0-9]\{36\}")
-          
-          # Copy with UUID in filename
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
-          
-          # Display profile info
-          security cms -D -i /tmp/profile.mobileprovision > /tmp/profile.plist
-          PROFILE_NAME=$(plutil -extract Name raw /tmp/profile.plist)
-          PROFILE_TEAM=$(plutil -extract TeamIdentifier.0 raw /tmp/profile.plist)
-          PROFILE_APP_ID=$(plutil -extract Entitlements.application-identifier raw /tmp/profile.plist)
-          
-          # Save profile info for later use
-          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
-          echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
-          echo "PROFILE_TEAM=$PROFILE_TEAM" >> $GITHUB_ENV
-          echo "PROFILE_APP_ID=$PROFILE_APP_ID" >> $GITHUB_ENV
+          # Run the pod signing fix script
+          ruby fix_pod_signing.rb
 
       - name: Create Xcode Scheme for Staging
         run: |
@@ -370,32 +423,78 @@ jobs:
           sed -i '' "s/PROVISIONING_PROFILE = \"\";/PROVISIONING_PROFILE = \"$PROFILE_UUID\";/" Runner.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$PROFILE_TEAM\";/" Runner.xcodeproj/project.pbxproj
           
-          # Create a Ruby script to set automatic code signing for all pod targets
-          cat > fix_pod_signing.rb << 'EOL'
+          # Fix code signing settings specifically for the main Runner target
+          cat > fix_runner_signing.rb << 'EOL'
+          #!/usr/bin/env ruby
           require 'xcodeproj'
           
-          # Open the Pods project
-          project_path = 'Pods/Pods.xcodeproj'
-          project = Xcodeproj::Project.open(project_path)
+          puts "Opening Runner project to update code signing settings..."
+          project_path = 'Runner.xcodeproj'
           
-          # Set automatic code signing for all targets and all configurations
-          project.targets.each do |target|
-            target.build_configurations.each do |config|
-              # Set automatic code signing
-              config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
-              # Remove any manual signing settings
-              config.build_settings.delete('PROVISIONING_PROFILE_SPECIFIER')
-              config.build_settings.delete('PROVISIONING_PROFILE')
-              # Ensure minimum iOS version is 14.0
-              config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+          begin
+            project = Xcodeproj::Project.open(project_path)
+            
+            # Find the Runner target
+            runner_target = project.targets.find { |t| t.name == 'Runner' }
+            
+            if runner_target
+              puts "Found Runner target, updating build configurations..."
+              
+              # Update each build configuration
+              runner_target.build_configurations.each do |config|
+                puts "Checking configuration: #{config.name}"
+                
+                # Only modify Staging configuration
+                if config.name == 'Staging'
+                  puts "Updating Staging configuration with manual code signing settings"
+                  
+                  # Set manual code signing for the main app
+                  config.build_settings['CODE_SIGN_STYLE'] = 'Manual'
+                  
+                  # Set the team ID from environment if available
+                  team_id = ENV['PROFILE_TEAM']
+                  config.build_settings['DEVELOPMENT_TEAM'] = team_id if team_id && !team_id.empty?
+                  
+                  # Set the provisioning profile specifier from environment if available
+                  profile_name = ENV['PROFILE_NAME']
+                  config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = profile_name if profile_name && !profile_name.empty?
+                  
+                  # Set the provisioning profile UUID from environment if available
+                  profile_uuid = ENV['PROFILE_UUID']
+                  config.build_settings['PROVISIONING_PROFILE'] = profile_uuid if profile_uuid && !profile_uuid.empty?
+                  
+                  # Set code sign identity
+                  config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
+                  config.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = 'Apple Distribution'
+                  
+                  # Make sure the bundle ID is set correctly
+                  config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'app.madwell.pro.customer.staging'
+                  
+                  # Set other necessary flags for release build
+                  config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+                  config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'NDEBUG=1' unless config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].include?('NDEBUG=1')
+                  config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FLUTTER_RELEASE=1' unless config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].include?('FLUTTER_RELEASE=1')
+                end
+              end
+              
+              # Save changes
+              project.save
+              puts "Successfully updated Runner.xcodeproj settings"
+            else
+              puts "Error: Could not find Runner target in project"
+              exit 1
             end
+          rescue => e
+            puts "Error updating Runner project: #{e.message}"
+            puts e.backtrace.join("\n")
+            exit 1
           end
-          
-          # Save changes
-          project.save
           EOL
           
-          # Run the Ruby script to fix pod signing
+          chmod +x fix_runner_signing.rb
+          ruby fix_runner_signing.rb
+          
+          # Run the pod signing fix script again to ensure all targets are properly configured
           ruby fix_pod_signing.rb
 
       - name: Build iOS
@@ -508,7 +607,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-          bundler-cache: true # Uses cache for gems
+          bundler-cache: false
 
       - name: Deploy to TestFlight
         run: |
