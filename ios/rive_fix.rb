@@ -1,49 +1,42 @@
 #!/usr/bin/env ruby
 
-# Script to modify rive_types.hpp to recognize Staging configuration as Release build
+# This script fixes Rive plugin issues by setting proper preprocessor definitions
+
 require 'fileutils'
 
-# Find the rive_types.hpp file - it should be in a symlink in the .symlinks directory
-def find_rive_types
-  rive_types_pattern = ".symlinks/plugins/rive_common/ios/rive-cpp/include/rive/rive_types.hpp"
-  full_path = File.expand_path(rive_types_pattern)
+# Find Rive plugin header files
+rive_headers = Dir.glob("./**/*rive_types.hpp")
+
+if rive_headers.empty?
+  puts "No Rive header files found"
+else
+  puts "Found #{rive_headers.length} Rive header files to fix"
   
-  if File.exist?(full_path)
-    return full_path
-  else
-    puts "Searching for rive_types.hpp in plugin folders..."
-    # Try to find it in a different location
-    plugins_dir = ".symlinks/plugins"
-    Dir.glob("#{plugins_dir}/**/rive_types.hpp").each do |file|
-      puts "Found #{file}"
-      return file
+  rive_headers.each do |file_path|
+    puts "Processing #{file_path}..."
+    
+    # Create backup
+    backup_path = "#{file_path}.bak"
+    FileUtils.cp(file_path, backup_path) unless File.exist?(backup_path)
+    
+    # Read the file
+    content = File.read(file_path)
+    
+    # Fix the problematic #error directive by replacing it with NDEBUG definition
+    if content.include?("#error \"can't determine if we're debug or release\"")
+      puts "  Fixing #error directive..."
+      patched_content = content.gsub(
+        /#error "can't determine if we're debug or release"/,
+        "#define NDEBUG 1"
+      )
+      
+      # Write the patched content
+      File.write(file_path, patched_content)
+      puts "  Fixed successfully"
+    else
+      puts "  No issues found in this file"
     end
   end
-  
-  nil
 end
 
-rive_types_path = find_rive_types
-
-if rive_types_path && File.exist?(rive_types_path)
-  puts "Found rive_types.hpp at #{rive_types_path}"
-  
-  # Read the file
-  original = File.read(rive_types_path)
-  
-  # Create a backup
-  FileUtils.cp(rive_types_path, "#{rive_types_path}.bak")
-  
-  # Modify the file to recognize Staging as Release configuration
-  modified = original.gsub(
-    /#if defined\(DEBUG\) \|\| defined\(_DEBUG\)/, 
-    %{#if (defined(DEBUG) || defined(_DEBUG)) && !defined(NDEBUG) && !defined(FLUTTER_RELEASE)}
-  )
-  
-  # Write the modified file
-  File.write(rive_types_path, modified)
-  
-  puts "Updated #{rive_types_path}"
-else
-  puts "Could not find rive_types.hpp"
-end 
+puts "Rive plugin fix completed" 
