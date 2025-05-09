@@ -26,8 +26,11 @@ jobs:
           cat > .env.staging << 'EOL'
           ${{ secrets.ENV_FILE }}
           EOL
-
           
+          # Update native configuration with .env values
+          chmod +x update_native_config.sh
+          ./update_native_config.sh staging
+
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
         with:
@@ -139,30 +142,49 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
           echo "Decoding distribution certificate..."
-          # Use proper base64 decoding for certificate (this might vary by OS)
-          # Try alternative base64 decode method to ensure proper binary format
-          if [[ "$OSTYPE" == "darwin"* ]]; then
-            # macOS base64 requires -D for decode
-            echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -D > $CERTIFICATE_PATH
-          else
-            # Linux and others typically use -d
-            echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -d > $CERTIFICATE_PATH
-          fi
-
+          # Try different base64 decoding methods to ensure proper binary format
+          echo "Using improved base64 decoding for certificate..."
+          # Write base64 to file first to avoid shell parsing issues
+          echo "$DISTRIBUTION_CERTIFICATE_BASE64" > $RUNNER_TEMP/cert.b64
+          # Try to clean up the base64 content in case it has extra whitespace
+          tr -d '\n\r ' < $RUNNER_TEMP/cert.b64 > $RUNNER_TEMP/cert_clean.b64
+          base64 --decode $RUNNER_TEMP/cert_clean.b64 > $CERTIFICATE_PATH
+          
           # Verify certificate file exists and has size
           if [ ! -s "$CERTIFICATE_PATH" ]; then
             echo "Error: Certificate file is empty or doesn't exist"
-            exit 1
+            # Try alternative method 
+            echo "Trying alternative base64 decode method..."
+            echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -D > $CERTIFICATE_PATH
+            
+            if [ ! -s "$CERTIFICATE_PATH" ]; then
+              echo "Still failed. Trying without the -D flag..."
+              echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -d > $CERTIFICATE_PATH
+              
+              if [ ! -s "$CERTIFICATE_PATH" ]; then
+                echo "All decode methods failed. Certificate could be corrupt."
+                exit 1
+              fi
+            fi
           fi
           
           echo "Certificate size: $(wc -c < $CERTIFICATE_PATH) bytes"
 
           echo "Importing certificate to keychain..."
-          # Import with more explicit options and error handling
+          # Try multiple import options with debug output
+          echo "Attempting import with default options..."
           security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH || {
-            echo "Certificate import failed. Trying alternative options..."
-            # Try without specifying certificate type
-            security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -k $KEYCHAIN_PATH
+            echo "First import attempt failed. Trying with no format specification..."
+            security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -k $KEYCHAIN_PATH || {
+              echo "Second import attempt failed. Trying basic import..."
+              security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -k $KEYCHAIN_PATH || {
+                echo "All import attempts failed. Please check your certificate and password."
+                # Print certificate information without exposing sensitive data
+                echo "Certificate details:"
+                openssl pkcs12 -info -in $CERTIFICATE_PATH -noout -passin pass:"$P12_PASSWORD" || echo "Failed to read certificate info"
+                exit 1
+              }
+            }
           }
 
           security list-keychain -d user -s $KEYCHAIN_PATH
