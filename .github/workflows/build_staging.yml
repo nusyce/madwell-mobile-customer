@@ -166,8 +166,8 @@ jobs:
           # Verify keychain is accessible
           security list-keychains
           
-          # Try import with verbose output
-          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -v
+          # Import certificate with correct flags
+          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
 
           # Create and copy provisioning profile
