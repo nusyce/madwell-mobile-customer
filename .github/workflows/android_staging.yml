@@ -156,6 +156,11 @@ jobs:
           ruby-version: '3.1'
           bundler-cache: false
 
+      - name: Install required Ruby gems for Android
+        run: |
+          chmod +x android/setup_ruby_env.sh
+          android/setup_ruby_env.sh
+
       - name: Deploy to Play Store (Internal Testing)
         env:
           SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
@@ -172,5 +177,5 @@ jobs:
             exit 1
           fi
           
-          # Run Fastlane with bundle exec
-          bundle exec fastlane staging 
+          # Run Fastlane with explicit bundler version
+          bundle _2.3.27_ exec fastlane staging 

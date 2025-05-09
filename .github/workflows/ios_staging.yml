@@ -272,28 +272,29 @@ jobs:
           echo "Fixing Rive plugin build mode detection..."
           find ios/.symlinks/plugins -name "rive_types.hpp" -exec sed -i '' 's/#error "can'\''t determine if we'\''re debug or release"/#define NDEBUG 1/' {} \;
           
-          # List available schemes
+          # Change to iOS directory
           cd ios
+          
+          # Make scripts executable
+          chmod +x clean_xcode_project.sh
+          chmod +x fix_swift_version.rb
+          chmod +x fix_podfile.rb
+          chmod +x fix_cocoapods.rb
+          chmod +x fix_pod_install.rb
+          chmod +x pod_install_with_patch.sh
+          
+          # Run thorough project cleanup
+          ./clean_xcode_project.sh
+          
+          # List available schemes
           echo "Available schemes:"
           xcodebuild -project Runner.xcodeproj -list
           
-          # Clean pod installation and reinstall
-          rm -rf Pods
-          rm -f Podfile.lock
-          
-          # Ensure consistent Swift version in the project
+          # Apply Swift version fix
           ruby fix_swift_version.rb
           
-          # Patch Podfile to add Staging configuration and consistent Swift version
-          ruby fix_podfile.rb
-          
-          # Run pod install without using bundler
-          echo "Running pod install..."
-          gem install cocoapods
-          pod install --verbose
-          
-          # Ensure Swift version consistency again after pod install
-          ruby fix_swift_version.rb
+          # Run the patched pod install script
+          ./pod_install_with_patch.sh
           
           # Back to the project root
           cd ..
