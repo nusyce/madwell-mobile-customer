@@ -139,17 +139,86 @@ jobs:
           ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
           EOL
 
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod install --repo-update
+
+      - name: Import Certificates and Profiles
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -l ~/Library/Keychains/build.keychain
+
+          # Import certificate to keychain
+          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
+          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
+
+          # Create and copy provisioning profile
+          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
       - name: Create Xcode Scheme for Staging
         run: |
           cd ios
-          # Create a new scheme for staging
-          xcodebuild -scheme Runner -configuration Release -derivedDataPath build/
-          # List available schemes
-          xcodebuild -list
+          xcodebuild -scheme Runner -configuration Release -derivedDataPath build/ -allowProvisioningUpdates
 
       - name: Build iOS
         run: |
-          flutter build ios --release --dart-define=ENV=staging --no-codesign
+          flutter build ios --release --dart-define=ENV=staging
+
+      - name: Create Export Options
+        run: |
+          cat > ios/exportOptions.plist << EOL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>app.madwell.pro.customer.staging</key>
+                  <string>Madwell Pro Customer Distribution</string>
+              </dict>
+              <key>signingCertificate</key>
+              <string>Apple Distribution</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>teamID</key>
+              <string>${{ secrets.APPLE_TEAM_ID }}</string>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOL
+
+      - name: Archive and Export IPA
+        run: |
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            archive
+          
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist exportOptions.plist \
+            -exportPath build/ios \
+            -allowProvisioningUpdates
 
       - name: Setup Ruby for Fastlane
         uses: ruby/setup-ruby@v1
