@@ -26,6 +26,7 @@ jobs:
           ${{ secrets.ENV_FILE }}
           EOL
 
+          
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
         with:
