@@ -240,14 +240,28 @@ jobs:
           # Update Podfile to configure proper code signing for pods in Staging configuration
           sed -i '' 's/post_install do |installer|/post_install do |installer|\n  # Create Staging configuration for all pods\n  installer.pods_project.build_configurations.each do |config|\n    if config.name == "Release"\n      staging_config = config.dup\n      staging_config.name = "Staging"\n      installer.pods_project.build_configurations << staging_config\n    end\n  end\n/' Podfile
           
-          # Add code signing configuration settings for pods
-          sed -i '' '/target.build_configurations.each do |config|/a\\
-            # Set automatic code signing for all pods to avoid provisioning profile errors\
-            config.build_settings["CODE_SIGN_STYLE"] = "Automatic"\
-            config.build_settings["DEVELOPMENT_TEAM"] = ""\
-            config.build_settings.delete("PROVISIONING_PROFILE_SPECIFIER")\
-            config.build_settings.delete("PROVISIONING_PROFILE")\
-          ' Podfile
+          # Add code signing configuration settings for pods - directly edit the file instead of using sed
+          ruby -e '
+            podfile_content = File.read("Podfile")
+            # Find the position to insert the code
+            insert_pos = podfile_content.index("target.build_configurations.each do |config|")
+            if insert_pos
+              # Find the next line start position
+              next_line_pos = podfile_content.index("\n", insert_pos) + 1
+              # Insert our code after that line
+              new_content = podfile_content[0...next_line_pos] + 
+                "      # Set automatic code signing for all pods to avoid provisioning profile errors\n" +
+                "      config.build_settings[\"CODE_SIGN_STYLE\"] = \"Automatic\"\n" +
+                "      config.build_settings[\"DEVELOPMENT_TEAM\"] = \"\"\n" +
+                "      config.build_settings.delete(\"PROVISIONING_PROFILE_SPECIFIER\")\n" +
+                "      config.build_settings.delete(\"PROVISIONING_PROFILE\")\n" +
+                podfile_content[next_line_pos..-1]
+              File.write("Podfile", new_content)
+              puts "Successfully updated Podfile"
+            else
+              puts "Warning: Could not find target.build_configurations in Podfile"
+            end
+          '
           
           pod install --repo-update --clean-install
 
