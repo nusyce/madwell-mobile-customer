@@ -8,15 +8,22 @@ on:
       - deploy-to-playstore
   workflow_dispatch:  # Allows manual triggering
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   android:
     name: Android Staging Build
     environment: staging
-    runs-on: ubuntu-latest  
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v3 
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1 # Shallow clone for faster checkout
 
       - name: Create staging env file
         run: |  
@@ -24,18 +31,39 @@ jobs:
           ${{ secrets.ENV_FILE }}
           EOL
           
-
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.29.1'
           cache: true
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+            .pub-cache
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
       - name: Confirm Flutter & Dart versions
         run: flutter --version
 
       - name: Install Dart dependencies
-        run: flutter pub get
+        run: flutter pub get --no-precompile
 
       - name: Update google-services.json for staging
         run: |
@@ -54,29 +82,26 @@ jobs:
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           storeFile=../upload-keystore.jks
           EOL
-          
-          # Verify files exist
-          echo "Verifying keystore and properties files:"
-          ls -la android/upload-keystore.jks
-          ls -la android/key.properties
 
       - name: Build Android Staging APK
-        run: flutter build apk --flavor staging --dart-define=ENV=staging
+        run: flutter build apk --flavor staging --dart-define=ENV=staging --split-per-abi
 
       - name: Build Android Staging App Bundle
         run: flutter build appbundle --flavor staging --dart-define=ENV=staging
         
       - name: Upload Android Staging APK artifact
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v3
         with:
           name: android-staging-apk
           path: build/app/outputs/flutter-apk/app-staging-release.apk
+          retention-days: 3
 
       - name: Upload Android Staging AAB artifact
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v3
         with:
           name: android-staging-aab
           path: build/app/outputs/bundle/stagingRelease/app-staging-release.aab
+          retention-days: 3
 
       - name: Deploy to Firebase App Distribution (APK)
         uses: wzieba/Firebase-Distribution-Github-Action@v1
@@ -91,11 +116,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-
-      - name: Install Fastlane gems
-        run: |
-          cd android
-          bundle install
+          bundler-cache: true # Uses cache for gems
 
       - name: Deploy to Play Store (Internal Testing)
         env:
@@ -120,10 +141,13 @@ jobs:
     name: iOS Staging Build
     runs-on: macos-latest
     environment: staging
+    timeout-minutes: 60
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 1 # Shallow clone for faster checkout
       
       - name: Create staging env file
         run: |  
@@ -131,18 +155,36 @@ jobs:
           ${{ secrets.ENV_FILE }}
           EOL
 
-
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.29.1'
           cache: true
 
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+            .pub-cache
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v3
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
       - name: Confirm Flutter & Dart versions
         run: flutter --version
 
       - name: Install Dart dependencies
-        run: flutter pub get
+        run: flutter pub get --no-precompile
 
       - name: Update GoogleService-Info.plist for staging
         run: |
@@ -153,8 +195,7 @@ jobs:
       - name: Install CocoaPods
         run: |
           cd ios
-          rm -rf Pods Podfile.lock
-          pod install --repo-update
+          pod install --repo-update --clean-install --deployment
 
       - name: Import Certificates and Profiles
         env:
@@ -171,27 +212,15 @@ jobs:
 
           # Import certificate to keychain
           echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
-          echo "Certificate decoded to /tmp/certificate.p12"
-          ls -l /tmp/certificate.p12
           
           # Verify certificate can be read with password
-          echo "Verifying certificate..."
-          if openssl pkcs12 -in /tmp/certificate.p12 -noout -passin pass:"$IOS_CERTIFICATE_PASSWORD" 2>/dev/null; then
-            echo "Certificate password verification successful"
-          else
+          if ! openssl pkcs12 -in /tmp/certificate.p12 -noout -passin pass:"$IOS_CERTIFICATE_PASSWORD" 2>/dev/null; then
             echo "Certificate password verification failed"
-            echo "Please check if the IOS_CERTIFICATE_PASSWORD matches the password used when exporting the certificate"
             exit 1
           fi
           
           # Extract certificate and private key
-          echo "Extracting certificate and private key..."
-          openssl pkcs12 -in /tmp/certificate.p12 -out /tmp/certificate.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
-          
-          # Extract just the certificate
           openssl pkcs12 -in /tmp/certificate.p12 -clcerts -nokeys -out /tmp/cert.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD"
-          
-          # Extract just the private key
           openssl pkcs12 -in /tmp/certificate.p12 -nocerts -out /tmp/key.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
           openssl rsa -in /tmp/key.pem -out /tmp/key_decrypted.pem -passin pass:temp123
           
@@ -212,7 +241,6 @@ jobs:
           
           # Get the UUID from the profile
           PROFILE_UUID=$(grep UUID -A1 -a /tmp/profile.mobileprovision | grep -io "[-A-Z0-9]\{36\}")
-          echo "Provisioning profile UUID: $PROFILE_UUID"
           
           # Copy with UUID in filename
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
@@ -222,9 +250,6 @@ jobs:
           PROFILE_NAME=$(plutil -extract Name raw /tmp/profile.plist)
           PROFILE_TEAM=$(plutil -extract TeamIdentifier.0 raw /tmp/profile.plist)
           PROFILE_APP_ID=$(plutil -extract Entitlements.application-identifier raw /tmp/profile.plist)
-          echo "Profile Name: $PROFILE_NAME"
-          echo "Profile Team: $PROFILE_TEAM"
-          echo "Profile App ID: $PROFILE_APP_ID"
           
           # Save profile info for later use
           echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
@@ -268,22 +293,10 @@ jobs:
           fi
           
           # Set explicit provisioning profile in project.pbxproj
-          # Get the provisioning profile UUID
           echo "Updating project.pbxproj with provisioning profile UUID: $PROFILE_UUID"
           sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/" Runner.xcodeproj/project.pbxproj
           sed -i '' "s/PROVISIONING_PROFILE = \"\";/PROVISIONING_PROFILE = \"$PROFILE_UUID\";/" Runner.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$PROFILE_TEAM\";/" Runner.xcodeproj/project.pbxproj
-          
-          # Create a new scheme using manual signing with Staging configuration
-          xcodebuild -scheme Runner -configuration Staging \
-            -derivedDataPath build/ \
-            -allowProvisioningUpdates \
-            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
-            DEVELOPMENT_TEAM="$PROFILE_TEAM"
 
       - name: Build iOS
         run: |
@@ -321,7 +334,7 @@ jobs:
       - name: Archive and Export IPA
         run: |
           cd ios
-          # Use manual code signing for archive with Staging configuration
+          # Use manual code signing for archive with Staging configuration and optimization flags
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Staging \
@@ -332,44 +345,31 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             PROVISIONING_PROFILE="$PROFILE_UUID" \
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
+            -quiet \
+            -skipPackagePluginValidation \
             archive
           
           xcodebuild -exportArchive \
             -archivePath build/Runner.xcarchive \
             -exportOptionsPlist exportOptions.plist \
             -exportPath build/ios \
-            -allowProvisioningUpdates
+            -allowProvisioningUpdates \
+            -quiet
+
+      - name: Upload iOS Staging IPA artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-staging-ipa
+          path: ios/build/ios/Runner.ipa
+          retention-days: 3
 
       - name: Setup Ruby for Fastlane
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
+          bundler-cache: true # Uses cache for gems
 
-      - name: Install Fastlane gems
+      - name: Deploy to TestFlight
         run: |
           cd ios
-          bundle install
-
-      - name: Decode Apple certificates & profiles
-        env:
-          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
-          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
-        run: |
-          mkdir -p ~/certs
-          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > ~/certs/cert.p12
-          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > ~/certs/profile.mobileprovision
-
-      - name: Build & Sign IPA for TestFlight
-        env:
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-        run: |
-          cd ios
-          fastlane build_staging
-
-      - name: Upload iOS Staging IPA artifact
-        uses: actions/upload-artifact@master
-        with:
-          name: ios-staging-ipa
-          path: ios/build/Runner.ipa 
+          bundle exec fastlane build_staging 
