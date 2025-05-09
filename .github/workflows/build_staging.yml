@@ -163,11 +163,19 @@ jobs:
           echo "Certificate decoded to /tmp/certificate.p12"
           ls -l /tmp/certificate.p12
           
-          # Verify keychain is accessible
-          security list-keychains
+          # Verify certificate can be read with password
+          echo "Verifying certificate..."
+          if openssl pkcs12 -in /tmp/certificate.p12 -noout -passin pass:"$IOS_CERTIFICATE_PASSWORD" 2>/dev/null; then
+            echo "Certificate password verification successful"
+          else
+            echo "Certificate password verification failed"
+            echo "Please check if the IOS_CERTIFICATE_PASSWORD matches the password used when exporting the certificate"
+            exit 1
+          fi
           
-          # Import certificate with correct flags
-          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12
+          # Import certificate with additional debug
+          echo "Importing certificate..."
+          security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -x
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
 
           # Create and copy provisioning profile
