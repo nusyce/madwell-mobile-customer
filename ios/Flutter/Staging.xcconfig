@@ -1,0 +1,12 @@
+PRODUCT_BUNDLE_IDENTIFIER = app.madwell.pro.customer.staging
+PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*] = $(PROFILE_NAME)
+DEVELOPMENT_TEAM = $(PROFILE_TEAM)
+CODE_SIGN_IDENTITY = Apple Distribution
+CODE_SIGN_STYLE = Manual
+APP_DISPLAY_NAME = Madwell Pro Staging
+FLUTTER_TARGET = lib/main_staging.dart
+FLUTTER_BUILD_MODE = Release
+FLUTTER_FLAVOR = staging
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) NDEBUG=1 NS_BLOCK_ASSERTIONS=1 FLUTTER_RELEASE=1
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+#include "Generated.xcconfig" 

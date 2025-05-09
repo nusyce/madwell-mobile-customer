@@ -1,0 +1,474 @@
+name: iOS Staging Build
+
+on:
+  push:
+    branches:
+      - develop
+      - staging
+      - deploy-to-playstore
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  ios:
+    name: iOS Staging Build
+    runs-on: macos-latest
+    environment: staging
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1 # Shallow clone for faster checkout
+      
+      - name: Setup Environment
+        run: |  
+          # Create staging env file
+          cat > .env.staging << 'EOL'
+          ${{ secrets.ENV_FILE }}
+          EOL
+
+          # Create a universal .env file for convenience
+          cp .env.staging .env
+          
+          # Make scripts executable
+          chmod +x update_native_config.sh
+          chmod +x ios/update_infoplist.sh
+          chmod +x android/update_manifest.sh
+          
+          # Update native configuration with .env values
+          ./update_native_config.sh staging
+          
+          echo "Environment setup complete"
+          
+      - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.1'
+          cache: true
+
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+            .pub-cache
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v3
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Confirm Flutter & Dart versions
+        run: flutter --version
+
+      - name: Install Dart dependencies
+        run: flutter pub get --no-precompile
+
+      - name: Fix app_settings dependency issue
+        run: |
+          # Pin app_settings to v5.1.0 to avoid Swift compiler error
+          sed -i '' 's/app_settings: \^5.0.0/app_settings: 5.1.0/' pubspec.yaml
+          # Update dependencies with the pinned version
+          flutter pub get --no-precompile
+
+      - name: Update GoogleService-Info.plist for staging
+        run: |
+          cat > ios/Runner/GoogleService-Info.plist << 'EOL'
+          ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+          EOL
+
+      - name: Update Podfile for Staging configuration
+        run: |
+          cd ios
+          # Add Staging configuration to Podfile if not already added
+          if ! grep -q "Staging" Podfile; then
+            sed -i.bak '/# Prepare symlinks/i\
+          # Add Staging configuration for CocoaPods\
+          config.build_settings["POD_CONFIGURATION_BUILD_DIR"] = "${PODS_CONFIGURATION_BUILD_DIR}/#{config.name}"\
+          elsif config.name == "Staging"\
+          ' Podfile
+          fi
+          
+          # Create Podfile.properties.json with Staging configuration
+          cat > Podfile.properties.json << EOL
+          {
+            "use_frameworks!": true,
+            "configs": {
+              "Debug": {
+                "use_frameworks!": true
+              },
+              "Release": {
+                "use_frameworks!": true
+              },
+              "Staging": {
+                "use_frameworks!": true
+              }
+            }
+          }
+          EOL
+          
+          # Create a sym-link of GoogleMaps.framework in the Frameworks folder
+          mkdir -p Flutter/Flutter.framework/Modules
+          echo "link:" > Flutter/Flutter.framework/Modules/module.modulemap
+
+      - name: Prepare iOS build scripts
+        run: |
+          # Create all necessary script files
+          cat > ios/fix_swift_version.rb << 'EOL'
+          #!/usr/bin/env ruby
+          # This script ensures all Swift files use version 5.0
+          
+          require 'fileutils'
+          
+          def fix_swift_version(project_file)
+            return unless File.exist?(project_file)
+            
+            puts "Fixing Swift version in #{project_file}"
+            content = File.read(project_file)
+            
+            # Replace any Swift version with 5.0
+            content.gsub!(/SWIFT_VERSION = .*;/, 'SWIFT_VERSION = "5.0";')
+            
+            # Write back
+            File.write(project_file, content)
+            puts "Fixed Swift version in #{project_file}"
+          end
+          
+          # Fix main project
+          fix_swift_version("Runner.xcodeproj/project.pbxproj")
+          
+          # Fix Pods project if it exists
+          fix_swift_version("Pods/Pods.xcodeproj/project.pbxproj")
+          
+          # Create .swift-version file
+          File.write(".swift-version", "5.0")
+          
+          puts "Swift version fixed in all projects"
+          EOL
+          
+          # Create Swift version configuration file
+          echo "5.0" > ios/.swift-version
+          
+          # Make scripts executable
+          chmod +x ios/fix_swift_version.rb
+          chmod +x ios/disable_cocoapods_swift_checks.rb
+          chmod +x ios/pod_install_with_patch.sh
+          chmod +x ios/rive_fix.rb
+          
+          echo "iOS build scripts prepared"
+
+      - name: Fix Rive plugin issues
+        run: |
+          cd ios
+          
+          # Run the Rive fix script
+          ruby rive_fix.rb
+          
+          # Direct fix for any rive_types.hpp files
+          find . -name "rive_types.hpp" -exec sh -c 'echo "Fixing $0"; sed -i.bak "s/#error \"can'\''t determine if we'\''re debug or release\"/#define NDEBUG 1/" $0' {} \;
+          
+          # Add staging configuration to any remaining Xcode projects that might need it
+          find . -name "project.pbxproj" -exec sh -c 'echo "Adding Staging to $0"; sed -i.bak "s/Debug = {/Debug = {\\nStaging = {\\nisa = XCBuildConfiguration;\\nbuildSettings = {\\nCOPY_PHASE_STRIP = NO;\\nDEBUG_INFORMATION_FORMAT = dwarf;\\nGCC_PREPROCESSOR_DEFINITIONS = (\\n\\"DEBUG=1\\",\\n\\"NDEBUG=1\\",\\n);\\n};\\nname = Staging;\\n};/g" $0' {} \;
+          
+          echo "Rive plugin fixes applied"
+
+      - name: Import Certificates and Profiles
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          # Import certificate to keychain
+          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
+          
+          # Verify certificate can be read with password
+          if ! openssl pkcs12 -in /tmp/certificate.p12 -noout -passin pass:"$IOS_CERTIFICATE_PASSWORD" 2>/dev/null; then
+            echo "Certificate password verification failed"
+            exit 1
+          fi
+          
+          # Extract certificate and private key
+          openssl pkcs12 -in /tmp/certificate.p12 -clcerts -nokeys -out /tmp/cert.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD"
+          openssl pkcs12 -in /tmp/certificate.p12 -nocerts -out /tmp/key.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
+          openssl rsa -in /tmp/key.pem -out /tmp/key_decrypted.pem -passin pass:temp123
+          
+          # Import certificate and key directly
+          security import /tmp/cert.pem -k build.keychain -T /usr/bin/codesign
+          security import /tmp/key_decrypted.pem -k build.keychain -T /usr/bin/codesign
+
+          # Update keychain settings
+          security set-keychain-settings -t 3600 -l build.keychain
+          security list-keychains -s build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" build.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
+
+          # Create and copy provisioning profile
+          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          
+          # Get the UUID from the profile
+          PROFILE_UUID=$(grep UUID -A1 -a /tmp/profile.mobileprovision | grep -io "[-A-Z0-9]\{36\}")
+          
+          # Copy with UUID in filename
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
+          
+          # Display profile info
+          security cms -D -i /tmp/profile.mobileprovision > /tmp/profile.plist
+          PROFILE_NAME=$(plutil -extract Name raw /tmp/profile.plist)
+          PROFILE_TEAM=$(plutil -extract TeamIdentifier.0 raw /tmp/profile.plist)
+          PROFILE_APP_ID=$(plutil -extract Entitlements.application-identifier raw /tmp/profile.plist)
+          
+          # Save profile info for later use
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+          echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+          echo "PROFILE_TEAM=$PROFILE_TEAM" >> $GITHUB_ENV
+          echo "PROFILE_APP_ID=$PROFILE_APP_ID" >> $GITHUB_ENV
+
+      - name: Setup Ruby for Building
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+
+      - name: Install required Ruby gems
+        run: |
+          gem install cocoapods -v 1.15.2
+          gem install fastlane -v 2.219.0
+
+      - name: Create Xcode Scheme for Staging
+        run: |
+          cd ios
+          # Create Staging.xcconfig with profile info from env variables
+          mkdir -p Flutter
+          echo "PRODUCT_BUNDLE_IDENTIFIER = app.madwell.pro.customer.staging" > Flutter/Staging.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*] = \$(PROFILE_NAME)" >> Flutter/Staging.xcconfig
+          echo "DEVELOPMENT_TEAM = \$(PROFILE_TEAM)" >> Flutter/Staging.xcconfig
+          echo "CODE_SIGN_IDENTITY = Apple Distribution" >> Flutter/Staging.xcconfig
+          echo "CODE_SIGN_STYLE = Manual" >> Flutter/Staging.xcconfig
+          echo "APP_DISPLAY_NAME = Madwell Pro Staging" >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_TARGET = lib/main_staging.dart' >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_BUILD_MODE = Release' >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_FLAVOR = staging' >> Flutter/Staging.xcconfig
+          echo 'GCC_PREPROCESSOR_DEFINITIONS = $(inherited) FLUTTER_RELEASE=1 NDEBUG=1' >> Flutter/Staging.xcconfig
+          echo '#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"' >> Flutter/Staging.xcconfig
+          echo '#include "Generated.xcconfig"' >> Flutter/Staging.xcconfig
+          
+          # Run the Ruby script to create/update staging configuration
+          ruby add_staging_config.rb
+          
+          # Fix Swift version conflicts
+          ruby fix_swift_version.rb
+          
+          # Update CocoaPods configurations to support Staging
+          mkdir -p Pods/Target\ Support\ Files/Pods-Runner
+          if [ -f "Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-input-files.xcfilelist" ]; then
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Release-input-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Staging-input-files.xcfilelist
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Release-output-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Staging-output-files.xcfilelist
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Release-input-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Staging-input-files.xcfilelist 2>/dev/null || true
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Release-output-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Staging-output-files.xcfilelist 2>/dev/null || true
+            
+            if [ -f "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig" ]; then
+              cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner.release.xcconfig Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner.staging.xcconfig
+            fi
+          fi
+          
+          # Set explicit provisioning profile in project.pbxproj for Runner target only
+          echo "Updating project.pbxproj with provisioning profile UUID: $PROFILE_UUID"
+          # Update only the main Runner target, not Pod targets
+          sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/" Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/PROVISIONING_PROFILE = \"\";/PROVISIONING_PROFILE = \"$PROFILE_UUID\";/" Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$PROFILE_TEAM\";/" Runner.xcodeproj/project.pbxproj
+          
+          # Explicitly set code signing for Pods project to automatic
+          if [ -f "Pods/Pods.xcodeproj/project.pbxproj" ]; then
+            echo "Setting automatic code signing for Pods targets..."
+            # Set all targets in Pods project to use automatic signing
+            sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = ".*";/PROVISIONING_PROFILE_SPECIFIER = "";/g' Pods/Pods.xcodeproj/project.pbxproj
+            sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Pods/Pods.xcodeproj/project.pbxproj
+          fi
+
+      - name: Install CocoaPods with Swift version patch
+        run: |
+          cd ios
+          
+          # Run the patched pod install script
+          ./pod_install_with_patch.sh
+          
+          # Verify installation
+          if [ -d "Pods" ] && [ -f "Pods/Manifest.lock" ]; then
+            echo "CocoaPods installation successful"
+          else
+            echo "Warning: CocoaPods installation may have issues, but continuing"
+          fi
+
+      - name: Build iOS
+        run: |
+          # Patch Swift version in project files
+          echo "Setting consistent Swift version in project files..."
+          ruby ios/fix_swift_version.rb
+          
+          # Fix for Rive plugin build mode detection issue
+          echo "Fixing Rive plugin build mode detection..."
+          find ios/.symlinks/plugins -name "rive_types.hpp" -exec sed -i '' 's/#error "can'\''t determine if we'\''re debug or release"/#define NDEBUG 1/' {} \;
+          
+          # Fix Swift version in pbxproj file directly
+          echo "Applying direct Swift version fix to project.pbxproj..."
+          cd ios
+          sed -i '' 's/SWIFT_VERSION = "";/SWIFT_VERSION = "5.0";/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/SWIFT_VERSION = \([^5].*\);/SWIFT_VERSION = "5.0";/g' Runner.xcodeproj/project.pbxproj
+          
+          # Apply Swift version fix to Pods project
+          if [ -f "Pods/Pods.xcodeproj/project.pbxproj" ]; then
+            echo "Setting Swift version for all Pod targets..."
+            sed -i '' 's/SWIFT_VERSION = "";/SWIFT_VERSION = "5.0";/g' Pods/Pods.xcodeproj/project.pbxproj
+            sed -i '' 's/SWIFT_VERSION = \([^5].*\);/SWIFT_VERSION = "5.0";/g' Pods/Pods.xcodeproj/project.pbxproj
+          fi
+          
+          # List available schemes
+          echo "Available schemes:"
+          xcodebuild -project Runner.xcodeproj -list
+          
+          # Build the project
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner-staging \
+            -configuration Staging \
+            -sdk iphoneos \
+            -quiet \
+            clean build \
+            CODE_SIGNING_ALLOWED=NO \
+            GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
+            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
+            SWIFT_VERSION=5.0
+
+      - name: Create Export Options
+        run: |
+          cat > ios/exportOptions.plist << EOL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>app.madwell.pro.customer.staging</key>
+                  <string>$PROFILE_NAME</string>
+              </dict>
+              <key>signingCertificate</key>
+              <string>Apple Distribution</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>teamID</key>
+              <string>$PROFILE_TEAM</string>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>iCloudContainerEnvironment</key>
+              <string>Production</string>
+          </dict>
+          </plist>
+          EOL
+
+      - name: Archive and Export IPA
+        run: |
+          cd ios
+          
+          # Pod targets should use automatic signing
+          for scheme in $(find Pods/Pods.xcodeproj -name "*.xcscheme" | xargs -n 1 basename | sed -E 's/\.xcscheme//'); do
+            xcrun xcodebuild -project Pods/Pods.xcodeproj -scheme "$scheme" -configuration Staging \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              CODE_SIGN_STYLE=Automatic \
+              SWIFT_VERSION=5.0 \
+              build > /dev/null 2>&1 || true
+          done
+
+          # Check for proper scheme configuration
+          echo "Available schemes:"
+          xcodebuild -workspace Runner.xcworkspace -list
+
+          # Use manual code signing for the main app target only
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner-staging \
+            -configuration Staging \
+            -archivePath build/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            OTHER_CODE_SIGN_FLAGS="--keychain=build.keychain" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="$PROFILE_TEAM" \
+            "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]=$PROFILE_NAME" \
+            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
+            GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
+            FLUTTER_BUILD_MODE=Release \
+            SWIFT_VERSION=5.0 \
+            -quiet \
+            -skipPackagePluginValidation \
+            archive || {
+              echo "Archive failed. Showing xcodebuild settings for debugging:"
+              xcodebuild -workspace Runner.xcworkspace -scheme Runner-staging -showBuildSettings
+              exit 1
+            }
+          
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist exportOptions.plist \
+            -exportPath build/ios \
+            -allowProvisioningUpdates \
+            -quiet
+
+      - name: Find IPA for artifact upload
+        id: find_ipa
+        run: |
+          # List all IPA files in the build directory
+          echo "Looking for IPA files..."
+          find ios/build -name "*.ipa" | sort
+          
+          # Find the IPA file
+          IPA_FILE=$(find ios/build -name "*.ipa" | head -n 1)
+          
+          # Exit if no IPA found
+          if [ -z "$IPA_FILE" ]; then
+            echo "Error: No IPA file found!"
+            exit 1
+          fi
+          
+          echo "Found IPA: $IPA_FILE"
+          echo "ipa_path=$IPA_FILE" >> $GITHUB_OUTPUT
+
+      - name: Upload iOS Staging IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-staging-ipa
+          path: ${{ steps.find_ipa.outputs.ipa_path }}
+          retention-days: 3
+
+      - name: Deploy to Firebase App Distribution (iOS)
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_IOS_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: testers
+          file: ${{ steps.find_ipa.outputs.ipa_path }}
+          releaseNotes: "iOS Staging build from GitHub Actions - commit ${{ github.sha }}"
+
+      # Deploy to AppStore Connect
+      - name: Deploy to AppStore Connect
+        run: |
+          echo "Would deploy to AppStore Connect here"
+          # Implement actual AppStore Connect deployment if needed

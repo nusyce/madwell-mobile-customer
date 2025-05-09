@@ -7,41 +7,20 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:213795493196:android:9202f052770d061c1cebe9",
+        "mobilesdk_app_id": "1:213795493196:android:fa442c141017e4cd1cebe9",
         "android_client_info": {
           "package_name": "app.madwell.pro.customer"
         }
       },
       "oauth_client": [
         {
-          "client_id": "213795493196-8t2umgtnv1l63om11f2to1nsupftaelk.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAYMvWe1BHcdPBy_g2mnwU90qzPUYCnF6E"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "213795493196-8t2umgtnv1l63om11f2to1nsupftaelk.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:213795493196:android:9202f052770d061c1cebe9",
-        "android_client_info": {
-          "package_name": "app.madwell.pro.customer.dev"
-        }
-      },
-      "oauth_client": [
+          "client_id": "213795493196-osbh9iq5b7eifpv4h8hti3vujguib8dp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.madwell.pro.customer",
+            "certificate_hash": "9517d4d12d578e053f50b7b251607a51ee0b5dcc"
+          }
+        },
         {
           "client_id": "213795493196-8t2umgtnv1l63om11f2to1nsupftaelk.apps.googleusercontent.com",
           "client_type": 3
@@ -58,6 +37,13 @@
             {
               "client_id": "213795493196-8t2umgtnv1l63om11f2to1nsupftaelk.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "213795493196-7rv4onbcqclj6rjl7ntchbdfuitue1bq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "app.madwell.pro.provider"
+              }
             }
           ]
         }
@@ -65,7 +51,7 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:213795493196:android:9202f052770d061c1cebe9",
+        "mobilesdk_app_id": "1:213795493196:android:0f9a9950717fbe9f1cebe9",
         "android_client_info": {
           "package_name": "app.madwell.pro.customer.staging"
         }
@@ -87,6 +73,49 @@
             {
               "client_id": "213795493196-8t2umgtnv1l63om11f2to1nsupftaelk.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "213795493196-7rv4onbcqclj6rjl7ntchbdfuitue1bq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "app.madwell.pro.provider"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:213795493196:android:8c5a6e6f141803bb1cebe9",
+        "android_client_info": {
+          "package_name": "app.madwell.pro.provider"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "213795493196-8t2umgtnv1l63om11f2to1nsupftaelk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYMvWe1BHcdPBy_g2mnwU90qzPUYCnF6E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "213795493196-8t2umgtnv1l63om11f2to1nsupftaelk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "213795493196-7rv4onbcqclj6rjl7ntchbdfuitue1bq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "app.madwell.pro.provider"
+              }
             }
           ]
         }

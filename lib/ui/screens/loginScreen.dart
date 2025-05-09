@@ -778,10 +778,11 @@ class _LogInScreenState extends State<LogInScreen> {
   Widget _buildLogoWidget() {
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.15,
-      child: CustomSvgPicture(
-        svgImage: Theme.of(context).colorScheme.brightness == Brightness.light
+      child: Image.asset(
+        Theme.of(context).colorScheme.brightness == Brightness.light
             ? AppAssets.loginLogoLight
             : AppAssets.loginLogoDark,
+        fit: BoxFit.contain,
       ),
     );
   }

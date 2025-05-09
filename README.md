@@ -13,7 +13,19 @@ Each environment has its own configuration, package name, and app icon.
 
 ### Setup
 
-1. Copy the environment example files to the project root:
+The easiest way to set up your environment is to use the provided setup script:
+
+```bash
+# Run the environment setup script
+./setup_env.sh
+```
+
+Select the environment you want to set up (dev, staging, or prod) and the script will:
+1. Create the appropriate .env file from the examples
+2. Update native configurations (AndroidManifest.xml and Info.plist)
+3. Run the app with the correct environment settings
+
+Alternatively, you can manually copy the environment example files:
 
 ```bash
 # For development
@@ -26,7 +38,47 @@ cp .env_examples/env.staging .env.staging
 cp .env_examples/env.prod .env.prod
 ```
 
-2. Update the values in each `.env` file with the appropriate API keys and settings.
+Then update the native configurations:
+
+```bash
+# Update native configurations with environment values
+./update_native_config.sh [env_name]
+```
+
+### Environment Variables in Native Code
+
+The app uses environment variables in both Flutter and native platforms:
+
+1. **Flutter**: Variables are loaded from `.env.[env_name]` files using the `flutter_dotenv` package
+2. **Native Platforms**: Variables are passed to native code through:
+   - Method channels for runtime values
+   - Build-time scripts for compile-time values
+
+#### iOS Environment Variables
+
+For iOS, environment variables are integrated in two ways:
+- **Info.plist**: Values like Google Maps API key and AdMob IDs are updated in Info.plist
+- **AppDelegate.swift**: The app reads these values at runtime
+
+To update iOS environment values:
+
+```bash
+cd ios
+./update_infoplist.sh [env_name]
+```
+
+#### Android Environment Variables
+
+For Android, environment variables are integrated in:
+- **AndroidManifest.xml**: Values like Google Maps API key and AdMob IDs are updated in the manifest
+- **MainActivity.kt**: Additional values can be accessed through a method channel
+
+To update Android environment values:
+
+```bash
+cd android
+./update_manifest.sh [env_name]
+```
 
 ### Running the App
 

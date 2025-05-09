@@ -15,8 +15,15 @@ function copy_env_file() {
     echo "Environment file .env.$ENV already exists."
   else
     echo "Creating .env.$ENV file..."
-    cp -f .env_examples/env.$ENV .env
+    cp -f .env_examples/env.$ENV .env.$ENV
     echo "Created .env.$ENV file."
+  fi
+  
+  # Update native configuration files with environment variables
+  if [ -f "update_native_config.sh" ]; then
+    echo "Updating native configuration for $ENV environment..."
+    chmod +x update_native_config.sh
+    ./update_native_config.sh $ENV
   fi
 }
 

@@ -220,11 +220,13 @@ class _SplashScreenState extends State<SplashScreen> {
                   height: context.screenHeight,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                  child: const Center(
-                    child: CustomSvgPicture(
-                        svgImage: AppAssets.splashLogo,
+                  child: Center(
+                    child: Image.asset(
+                        AppAssets.splashLogo,
                         height: 240,
-                        width: 220),
+                        width: 220,
+                        fit: BoxFit.contain,
+                    ),
                   ),
                 ),
                 if (isDemoMode)
