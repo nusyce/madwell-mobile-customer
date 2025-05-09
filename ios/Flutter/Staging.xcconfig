@@ -9,12 +9,4 @@ FLUTTER_BUILD_MODE = Release
 FLUTTER_FLAVOR = staging
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) NDEBUG=1 NS_BLOCK_ASSERTIONS=1 FLUTTER_RELEASE=1
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
-#include "Generated.xcconfig"
-
-// Staging-specific configuration
-PRODUCT_BUNDLE_IDENTIFIER = app.madwell.pro.customer.staging
-PROVISIONING_PROFILE_SPECIFIER = Madwell Pro Customer Staging
-DEVELOPMENT_TEAM = $APPLE_TEAM_ID
-CODE_SIGN_IDENTITY = Apple Distribution
-CODE_SIGN_STYLE = Manual
-APP_DISPLAY_NAME = Madwell Pro Staging 
+#include "Generated.xcconfig" 

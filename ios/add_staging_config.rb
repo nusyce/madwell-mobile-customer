@@ -63,9 +63,56 @@ target.build_configurations.each do |config|
   end
 end
 
-# Find or create Staging scheme
-scheme_path = Xcodeproj::XCScheme.shared_data_dir(project_path) + 'Runner.xcscheme'
-scheme = Xcodeproj::XCScheme.new(scheme_path) if File.exist?(scheme_path)
+# Create custom schemes for flavors
+shared_data_dir = Xcodeproj::XCScheme.shared_data_dir(project_path)
+FileUtils.mkdir_p(shared_data_dir)
+
+# First, check if Runner scheme exists
+runner_scheme_path = "#{shared_data_dir}/Runner.xcscheme" 
+if File.exist?(runner_scheme_path)
+  puts "Found Runner scheme, copying for Runner-staging"
+  
+  # Load the existing Runner scheme
+  runner_scheme = Xcodeproj::XCScheme.new(runner_scheme_path)
+  
+  # Create a new scheme for Runner-staging
+  staging_scheme_path = "#{shared_data_dir}/Runner-staging.xcscheme"
+  
+  # Copy the Runner scheme
+  FileUtils.cp(runner_scheme_path, staging_scheme_path)
+  
+  # Load and modify the staging scheme
+  staging_scheme = Xcodeproj::XCScheme.new(staging_scheme_path)
+  
+  # Update the build action
+  staging_scheme.build_action.entries.each do |entry|
+    entry.build_for_testing = true
+    entry.build_for_running = true
+    entry.build_for_profiling = true
+    entry.build_for_archiving = true
+    entry.build_for_analyzing = true
+  end
+  
+  # Set the staging configuration for each action
+  staging_scheme.launch_action.build_configuration = 'Staging'
+  staging_scheme.test_action.build_configuration = 'Staging'
+  staging_scheme.profile_action.build_configuration = 'Staging'
+  staging_scheme.analyze_action.build_configuration = 'Staging'
+  staging_scheme.archive_action.build_configuration = 'Staging'
+  
+  # Save the scheme
+  staging_scheme.save!
+  puts "Created Runner-staging scheme with Staging configuration"
+else
+  puts "Warning: Runner.xcscheme not found, cannot create staging scheme!"
+end
+
+# Also create a generic scheme specification for Flutter
+schemes_file_path = "#{project_path}/xcshareddata/xcschemes/Runner-staging.xcscheme"
+FileUtils.mkdir_p(File.dirname(schemes_file_path))
+
+# Make the schemes visible to Xcode
+system("touch #{shared_data_dir}/.xcschemelist")
 
 # Save the project
 puts "Saving project"

@@ -261,13 +261,19 @@ jobs:
           echo "Fixing Rive plugin build mode detection..."
           find ios/.symlinks/plugins -name "rive_types.hpp" -exec sed -i '' 's/#error "can'\''t determine if we'\''re debug or release"/#define NDEBUG 1/' {} \;
           
-          # Run initial Flutter build with flavor explicitly set
-          flutter build ios --release --no-codesign --flavor staging --dart-define=ENV=staging --config-only
+          # List available schemes
+          cd ios
+          echo "Available schemes:"
+          xcodebuild -project Runner.xcodeproj -list
           
-          # Now run Xcode build with explicit NDEBUG definition for Rive plugin
+          # Run initial Flutter build without flavor flag but with dart-define
+          cd ..
+          flutter build ios --release --no-codesign --dart-define=ENV=staging --config-only
+          
+          # Now run Xcode build with explicit staging scheme and configuration
           cd ios
           xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
+            -scheme Runner-staging \
             -configuration Staging \
             -sdk iphoneos \
             -quiet \
@@ -320,14 +326,10 @@ jobs:
           # Check for proper scheme configuration
           echo "Available schemes:"
           xcodebuild -workspace Runner.xcworkspace -list
-          
-          # Get the appropriate scheme for staging
-          RUNNER_SCHEME=$(xcodebuild -workspace Runner.xcworkspace -list | grep -A 10 "Schemes:" | grep -E "Runner|Runner-staging" | head -1 | xargs)
-          echo "Using scheme: $RUNNER_SCHEME"
 
           # Use manual code signing for the main app target only
           xcodebuild -workspace Runner.xcworkspace \
-            -scheme "$RUNNER_SCHEME" \
+            -scheme Runner-staging \
             -configuration Staging \
             -archivePath build/Runner.xcarchive \
             -allowProvisioningUpdates \
@@ -339,12 +341,11 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
             FLUTTER_BUILD_MODE=Release \
-            FLUTTER_FLAVOR=staging \
             -quiet \
             -skipPackagePluginValidation \
             archive || {
               echo "Archive failed. Showing xcodebuild settings for debugging:"
-              xcodebuild -workspace Runner.xcworkspace -scheme "$RUNNER_SCHEME" -showBuildSettings
+              xcodebuild -workspace Runner.xcworkspace -scheme Runner-staging -showBuildSettings
               exit 1
             }
           
