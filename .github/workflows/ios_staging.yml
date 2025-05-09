@@ -123,6 +123,22 @@ jobs:
           cd ios
           pod install --repo-update --clean-install
 
+      - name: Fix Rive plugin issues
+        run: |
+          cd ios
+          
+          # Run the Rive fix script
+          chmod +x rive_fix.rb
+          ./rive_fix.rb
+          
+          # Additional manual fix for any rive_types.hpp files
+          find . -name "rive_types.hpp" -exec sh -c 'echo "Fixing $0"; sed -i.bak "s/#error \"can'\''t determine if we'\''re debug or release\"/#define NDEBUG 1/" $0' {} \;
+          
+          # Add staging configuration to any remaining Xcode projects that might need it
+          find . -name "project.pbxproj" -exec sh -c 'echo "Adding Staging to $0"; sed -i.bak "s/Debug = {/Debug = {\\nStaging = {\\nisa = XCBuildConfiguration;\\nbuildSettings = {\\nCOPY_PHASE_STRIP = NO;\\nDEBUG_INFORMATION_FORMAT = dwarf;\\nGCC_PREPROCESSOR_DEFINITIONS = (\\n\\"DEBUG=1\\",\\n\\"NDEBUG=1\\",\\n);\\n};\\nname = Staging;\\n};/g" $0' {} \;
+          
+          echo "Rive plugin fixes applied"
+
       - name: Import Certificates and Profiles
         env:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
@@ -226,8 +242,23 @@ jobs:
 
       - name: Build iOS
         run: |
-          # Build with manual signing using Staging configuration
-          flutter build ios --release --no-codesign --dart-define=ENV=staging
+          # Fix for Rive plugin build mode detection issue
+          echo "Fixing Rive plugin build mode detection..."
+          find ios/.symlinks/plugins -name "rive_types.hpp" -exec sed -i '' 's/#error "can'\''t determine if we'\''re debug or release"/#define NDEBUG 1/' {} \;
+          
+          # Run initial Flutter build with config-only to prepare the build files
+          flutter build ios --release --no-codesign --dart-define=ENV=staging --config-only
+          
+          # Now run Xcode build with explicit NDEBUG definition for Rive plugin
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Staging \
+            -sdk iphoneos \
+            -quiet \
+            clean build \
+            CODE_SIGNING_ALLOWED=NO \
+            GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1'
 
       - name: Create Export Options
         run: |
@@ -271,6 +302,7 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             PROVISIONING_PROFILE="$PROFILE_UUID" \
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
+            GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
             -quiet \
             -skipPackagePluginValidation \
             archive
@@ -303,8 +335,3 @@ jobs:
         with:
           ruby-version: '3.1'
           bundler-cache: true # Uses cache for gems
-
-      - name: Deploy to TestFlight
-        run: |
-          cd ios
-          bundle exec fastlane build_staging 
