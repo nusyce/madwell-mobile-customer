@@ -99,7 +99,7 @@ jobs:
 
       - name: Deploy to Play Store (Internal Testing)
         env:
-          SUPPLY_JSON_KEY: ${{ secrets.STAGING_GOOGLE_PLAY_JSON_KEY }}
+          SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
         run: |
           cd android
           echo "$SUPPLY_JSON_KEY" > service_account.json
@@ -167,21 +167,25 @@ jobs:
           echo "Verifying certificate..."
           if openssl pkcs12 -in /tmp/certificate.p12 -noout -passin pass:"$IOS_CERTIFICATE_PASSWORD" 2>/dev/null; then
             echo "Certificate password verification successful"
+            
+            # Extract certificate and private key
+            echo "Extracting certificate and private key..."
+            openssl pkcs12 -in /tmp/certificate.p12 -out /tmp/certificate.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
+            
+            # Extract just the certificate
+            openssl pkcs12 -in /tmp/certificate.p12 -clcerts -nokeys -out /tmp/cert.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD"
+            
+            # Extract just the private key
+            openssl pkcs12 -in /tmp/certificate.p12 -nocerts -out /tmp/key.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
+            openssl rsa -in /tmp/key.pem -out /tmp/key_decrypted.pem -passin pass:temp123
+            
+            # Import certificate and key directly
+            security import /tmp/cert.pem -k build.keychain -T /usr/bin/codesign
+            security import /tmp/key_decrypted.pem -k build.keychain -T /usr/bin/codesign
           else
             echo "Certificate password verification failed"
             echo "Please check if the IOS_CERTIFICATE_PASSWORD matches the password used when exporting the certificate"
             exit 1
-          fi
-          
-          # Import certificate with additional debug
-          echo "Importing certificate..."
-          # Try different import approaches
-          if ! security import /tmp/certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12; then
-            echo "First import attempt failed, trying alternative approach..."
-            # Try with temporary password file
-            echo "$IOS_CERTIFICATE_PASSWORD" > /tmp/password.txt
-            security import /tmp/certificate.p12 -k build.keychain -P "$(cat /tmp/password.txt)" -A -t cert -f pkcs12
-            rm /tmp/password.txt
           fi
 
           # Update keychain settings
