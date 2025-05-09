@@ -203,11 +203,33 @@ jobs:
       - name: Create Xcode Scheme for Staging
         run: |
           cd ios
-          xcodebuild -scheme Runner -configuration Release -derivedDataPath build/ -allowProvisioningUpdates
+          # Create a new scheme using manual signing
+          xcodebuild -scheme Runner -configuration Release \
+            -derivedDataPath build/ \
+            -allowProvisioningUpdates \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Distribution" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
 
       - name: Build iOS
         run: |
-          flutter build ios --release --dart-define=ENV=staging
+          # Get profile UUID
+          PROFILE_UUID=$(grep UUID -A1 -a ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | grep -io "[-A-Z0-9]\{36\}")
+          echo "Using provisioning profile UUID: $PROFILE_UUID"
+          
+          # Update project.pbxproj to use manual signing
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/' ios/Runner.xcodeproj/project.pbxproj
+          
+          # Create xcconfig file with signing settings
+          mkdir -p ios/Flutter
+          echo "PROVISIONING_PROFILE_SPECIFIER=Madwell Pro Customer Distribution" > ios/Flutter/Release.xcconfig
+          echo "DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_STYLE=Manual" >> ios/Flutter/Release.xcconfig
+          
+          # Build with manual signing
+          flutter build ios --release --no-codesign --dart-define=ENV=staging
 
       - name: Create Export Options
         run: |
@@ -240,10 +262,15 @@ jobs:
       - name: Archive and Export IPA
         run: |
           cd ios
+          # Use manual code signing for archive
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -archivePath build/Runner.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Distribution" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
             archive
           
           xcodebuild -exportArchive \
