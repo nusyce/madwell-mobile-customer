@@ -46,6 +46,9 @@ post_install do |installer|
       config.build_settings.delete("PROVISIONING_PROFILE_SPECIFIER")
       config.build_settings.delete("PROVISIONING_PROFILE")
       
+      # Ensure consistent Swift version
+      config.build_settings['SWIFT_VERSION'] = '5.0'
+      
       # Ensure consistent deployment target
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       config.build_settings['ENABLE_BITCODE'] = 'NO'

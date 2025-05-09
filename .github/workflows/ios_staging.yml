@@ -199,12 +199,20 @@ jobs:
           echo "PROFILE_TEAM=$PROFILE_TEAM" >> $GITHUB_ENV
           echo "PROFILE_APP_ID=$PROFILE_APP_ID" >> $GITHUB_ENV
 
+      - name: Setup Ruby for Building
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+
+      - name: Install required Ruby gems
+        run: |
+          chmod +x ios/setup_ruby_env.sh
+          ios/setup_ruby_env.sh
+
       - name: Create Xcode Scheme for Staging
         run: |
           cd ios
-          # Install xcodeproj gem for Ruby script
-          gem install xcodeproj
-          
           # Create Staging.xcconfig with profile info from env variables
           mkdir -p Flutter
           echo "PRODUCT_BUNDLE_IDENTIFIER = app.madwell.pro.customer.staging" > Flutter/Staging.xcconfig
@@ -222,6 +230,9 @@ jobs:
           
           # Run the Ruby script to create/update staging configuration
           ruby add_staging_config.rb
+          
+          # Fix Swift version conflicts
+          ruby fix_swift_version.rb
           
           # Update CocoaPods configurations to support Staging
           mkdir -p Pods/Target\ Support\ Files/Pods-Runner
@@ -266,8 +277,28 @@ jobs:
           echo "Available schemes:"
           xcodebuild -project Runner.xcodeproj -list
           
-          # Run initial Flutter build without flavor flag but with dart-define
+          # Clean pod installation and reinstall
+          rm -rf Pods
+          rm -f Podfile.lock
+          
+          # Ensure consistent Swift version in the project
+          ruby fix_swift_version.rb
+          
+          # Patch Podfile to add Staging configuration and consistent Swift version
+          ruby fix_podfile.rb
+          
+          # Run pod install without using bundler
+          echo "Running pod install..."
+          gem install cocoapods
+          pod install --verbose
+          
+          # Ensure Swift version consistency again after pod install
+          ruby fix_swift_version.rb
+          
+          # Back to the project root
           cd ..
+          
+          # Run initial Flutter build without flavor flag but with dart-define
           flutter build ios --release --no-codesign --dart-define=ENV=staging --config-only
           
           # Now run Xcode build with explicit staging scheme and configuration
@@ -280,7 +311,8 @@ jobs:
             clean build \
             CODE_SIGNING_ALLOWED=NO \
             GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
-            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging
+            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
+            SWIFT_VERSION=5.0
 
       - name: Create Export Options
         run: |
@@ -315,11 +347,15 @@ jobs:
       - name: Archive and Export IPA
         run: |
           cd ios
+          # Make sure we have required gems
+          gem list cocoapods || gem install cocoapods
+          
           # Pod targets should use automatic signing
           for scheme in $(find Pods/Pods.xcodeproj -name "*.xcscheme" | xargs -n 1 basename | sed -E 's/\.xcscheme//'); do
             xcrun xcodebuild -project Pods/Pods.xcodeproj -scheme "$scheme" -configuration Staging \
               PROVISIONING_PROFILE_SPECIFIER="" \
               CODE_SIGN_STYLE=Automatic \
+              SWIFT_VERSION=5.0 \
               build > /dev/null 2>&1 || true
           done
 
@@ -341,6 +377,7 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
             FLUTTER_BUILD_MODE=Release \
+            SWIFT_VERSION=5.0 \
             -quiet \
             -skipPackagePluginValidation \
             archive || {
@@ -390,12 +427,6 @@ jobs:
           groups: testers
           file: ${{ steps.find_ipa.outputs.ipa_path }}
           releaseNotes: "iOS Staging build from GitHub Actions - commit ${{ github.sha }}"
-
-      - name: Setup Ruby for Fastlane
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.1'
-          bundler-cache: true # Uses cache for gems
 
       # Deploy to AppStore Connect
       - name: Deploy to AppStore Connect
