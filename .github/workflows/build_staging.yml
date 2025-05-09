@@ -178,26 +178,26 @@ jobs:
           echo "Verifying certificate..."
           if openssl pkcs12 -in /tmp/certificate.p12 -noout -passin pass:"$IOS_CERTIFICATE_PASSWORD" 2>/dev/null; then
             echo "Certificate password verification successful"
-            
-            # Extract certificate and private key
-            echo "Extracting certificate and private key..."
-            openssl pkcs12 -in /tmp/certificate.p12 -out /tmp/certificate.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
-            
-            # Extract just the certificate
-            openssl pkcs12 -in /tmp/certificate.p12 -clcerts -nokeys -out /tmp/cert.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD"
-            
-            # Extract just the private key
-            openssl pkcs12 -in /tmp/certificate.p12 -nocerts -out /tmp/key.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
-            openssl rsa -in /tmp/key.pem -out /tmp/key_decrypted.pem -passin pass:temp123
-            
-            # Import certificate and key directly
-            security import /tmp/cert.pem -k build.keychain -T /usr/bin/codesign
-            security import /tmp/key_decrypted.pem -k build.keychain -T /usr/bin/codesign
           else
             echo "Certificate password verification failed"
             echo "Please check if the IOS_CERTIFICATE_PASSWORD matches the password used when exporting the certificate"
             exit 1
           fi
+          
+          # Extract certificate and private key
+          echo "Extracting certificate and private key..."
+          openssl pkcs12 -in /tmp/certificate.p12 -out /tmp/certificate.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
+          
+          # Extract just the certificate
+          openssl pkcs12 -in /tmp/certificate.p12 -clcerts -nokeys -out /tmp/cert.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD"
+          
+          # Extract just the private key
+          openssl pkcs12 -in /tmp/certificate.p12 -nocerts -out /tmp/key.pem -passin pass:"$IOS_CERTIFICATE_PASSWORD" -passout pass:temp123
+          openssl rsa -in /tmp/key.pem -out /tmp/key_decrypted.pem -passin pass:temp123
+          
+          # Import certificate and key directly
+          security import /tmp/cert.pem -k build.keychain -T /usr/bin/codesign
+          security import /tmp/key_decrypted.pem -k build.keychain -T /usr/bin/codesign
 
           # Update keychain settings
           security set-keychain-settings -t 3600 -l build.keychain
@@ -209,7 +209,22 @@ jobs:
           # Create and copy provisioning profile
           echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          
+          # Get the UUID from the profile
+          PROFILE_UUID=$(grep UUID -A1 -a /tmp/profile.mobileprovision | grep -io "[-A-Z0-9]\{36\}")
+          echo "Provisioning profile UUID: $PROFILE_UUID"
+          
+          # Copy with UUID in filename
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
+          
+          # Display profile info
+          security cms -D -i /tmp/profile.mobileprovision > /tmp/profile.plist
+          PROFILE_NAME=$(plutil -extract Name raw /tmp/profile.plist)
+          PROFILE_TEAM=$(plutil -extract TeamIdentifier.0 raw /tmp/profile.plist)
+          PROFILE_APP_ID=$(plutil -extract Entitlements.application-identifier raw /tmp/profile.plist)
+          echo "Profile Name: $PROFILE_NAME"
+          echo "Profile Team: $PROFILE_TEAM"
+          echo "Profile App ID: $PROFILE_APP_ID"
 
       - name: Create Xcode Scheme for Staging
         run: |
@@ -218,8 +233,9 @@ jobs:
           gem install xcodeproj
           
           # Create Staging.xcconfig
+          mkdir -p Flutter
           echo "PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging" > Flutter/Staging.xcconfig
-          echo "PROVISIONING_PROFILE_SPECIFIER=Madwell Pro Customer Staging" >> Flutter/Staging.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER=" >> Flutter/Staging.xcconfig
           echo "DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}" >> Flutter/Staging.xcconfig
           echo "CODE_SIGN_IDENTITY=Apple Distribution" >> Flutter/Staging.xcconfig
           echo "CODE_SIGN_STYLE=Manual" >> Flutter/Staging.xcconfig
@@ -231,6 +247,19 @@ jobs:
           # Add Staging configuration to project
           ruby add_staging_config.rb
           
+          # Update CocoaPods configurations to support Staging
+          mkdir -p Pods/Target\ Support\ Files/Pods-Runner
+          if [ -f "Pods/Target Support Files/Pods-Runner/Pods-Runner-frameworks-Release-input-files.xcfilelist" ]; then
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Release-input-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Staging-input-files.xcfilelist
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Release-output-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-frameworks-Staging-output-files.xcfilelist
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Release-input-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Staging-input-files.xcfilelist 2>/dev/null || true
+            cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Release-output-files.xcfilelist Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner-resources-Staging-output-files.xcfilelist 2>/dev/null || true
+            
+            if [ -f "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig" ]; then
+              cp Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner.release.xcconfig Pods/Target\ Support\ Files/Pods-Runner/Pods-Runner.staging.xcconfig
+            fi
+          fi
+          
           # Create a new scheme using manual signing with Staging configuration
           xcodebuild -scheme Runner -configuration Staging \
             -derivedDataPath build/ \
@@ -238,16 +267,27 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Staging" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
 
       - name: Build iOS
         run: |
           # Build with manual signing using Staging configuration
-          flutter build ios --release --no-codesign --dart-define=ENV=staging --flavor staging
+          flutter build ios --release --no-codesign --dart-define=ENV=staging
 
       - name: Create Export Options
         run: |
+          # Get the profile UUID from Library/MobileDevice/Provisioning Profiles
+          PROFILE_UUID=$(find ~/Library/MobileDevice/Provisioning\ Profiles -name "*.mobileprovision" -exec grep -l "app.madwell.pro.customer.staging" {} \; | head -n 1 | xargs basename | cut -d. -f1)
+          echo "Found provisioning profile UUID: $PROFILE_UUID"
+          
+          # Get profile details
+          PROFILE_PATH=$(find ~/Library/MobileDevice/Provisioning\ Profiles -name "$PROFILE_UUID.mobileprovision")
+          security cms -D -i "$PROFILE_PATH" > /tmp/profile_info.plist
+          TEAM_ID=$(plutil -extract TeamIdentifier.0 raw /tmp/profile_info.plist)
+          PROFILE_NAME=$(plutil -extract Name raw /tmp/profile_info.plist)
+          echo "Team ID: $TEAM_ID"
+          echo "Profile Name: $PROFILE_NAME"
+          
           cat > ios/exportOptions.plist << EOL
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -258,7 +298,7 @@ jobs:
               <key>provisioningProfiles</key>
               <dict>
                   <key>app.madwell.pro.customer.staging</key>
-                  <string>Madwell Pro Customer Staging</string>
+                  <string>$PROFILE_NAME</string>
               </dict>
               <key>signingCertificate</key>
               <string>Apple Distribution</string>
@@ -267,7 +307,7 @@ jobs:
               <key>stripSwiftSymbols</key>
               <true/>
               <key>teamID</key>
-              <string>${{ secrets.APPLE_TEAM_ID }}</string>
+              <string>$TEAM_ID</string>
               <key>uploadSymbols</key>
               <true/>
           </dict>
@@ -284,7 +324,6 @@ jobs:
             -archivePath build/Runner.xcarchive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Madwell Pro Customer Staging" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             archive
