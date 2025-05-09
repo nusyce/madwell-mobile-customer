@@ -13,7 +13,6 @@ jobs:
     name: iOS Staging Build
     runs-on: macos-latest
     environment: staging
-    timeout-minutes: 60
 
     steps:
       - name: Checkout source
