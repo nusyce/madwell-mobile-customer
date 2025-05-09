@@ -1,115 +1,13 @@
-name: Build Staging App
+name: iOS Staging Build
 
 on:
   push:
     branches:
       - develop
       - staging
-      - deploy-to-playstore
   workflow_dispatch:  # Allows manual triggering
-  
+
 jobs:
-  android:
-    name: Android Staging Build
-    environment: staging
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 1 # Shallow clone for faster checkout
-
-      - name: Create staging env file
-        run: |  
-          cat > .env.staging << 'EOL'
-          ${{ secrets.ENV_FILE }}
-          EOL
-          
-      - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.29.1'
-
-      - name: Confirm Flutter & Dart versions
-        run: flutter --version
-
-      - name: Install Dart dependencies
-        run: flutter pub get --no-precompile
-
-      - name: Update google-services.json for staging
-        run: |
-          cat > android/app/google-services.json << 'EOL'
-          ${{ secrets.GOOGLE_SERVICES_JSON }}
-          EOL
-
-      - name: Setup Android signing
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/upload-keystore.jks
-          
-          # Create key.properties
-          cat > android/key.properties << 'EOL'
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=../upload-keystore.jks
-          EOL
-
-      - name: Build Android Staging APK
-        run: flutter build apk --flavor staging --dart-define=ENV=staging --split-per-abi
-
-      - name: Build Android Staging App Bundle
-        run: flutter build appbundle --flavor staging --dart-define=ENV=staging
-        
-      - name: Upload Android Staging APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-staging-apk
-          path: build/app/outputs/flutter-apk/app-staging-release.apk
-          retention-days: 3
-
-      - name: Upload Android Staging AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-staging-aab
-          path: build/app/outputs/bundle/stagingRelease/app-staging-release.aab
-          retention-days: 3
-
-      - name: Deploy to Firebase App Distribution (APK)
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          groups: testers
-          file: build/app/outputs/flutter-apk/app-staging-release.apk
-          releaseNotes: "Staging build from GitHub Actions - commit ${{ github.sha }}"
-
-      - name: Setup Ruby for Fastlane
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.1'
-          bundler-cache: false
-
-      - name: Deploy to Play Store (Internal Testing)
-        env:
-          SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
-        run: |
-          cd android
-          # Write JSON key to a file, properly handling quotes and formatting
-          echo '${{ secrets.GOOGLE_PLAY_JSON_KEY }}' > service_account.json
-          
-          # Check if file exists and has content
-          if [ -s service_account.json ]; then
-            echo "Service account JSON file created successfully"
-          else
-            echo "Failed to create service account JSON file"
-            exit 1
-          fi
-          
-          # Run Fastlane with bundle exec
-          bundle exec fastlane staging
-
   ios:
     name: iOS Staging Build
     runs-on: macos-latest
