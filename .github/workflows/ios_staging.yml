@@ -207,18 +207,20 @@ jobs:
           
           # Create Staging.xcconfig with profile info from env variables
           mkdir -p Flutter
-          echo "PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging" > Flutter/Staging.xcconfig
-          echo "PROVISIONING_PROFILE_SPECIFIER=$PROFILE_NAME" >> Flutter/Staging.xcconfig
-          echo "DEVELOPMENT_TEAM=$PROFILE_TEAM" >> Flutter/Staging.xcconfig
-          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> Flutter/Staging.xcconfig
-          echo "CODE_SIGN_STYLE=Manual" >> Flutter/Staging.xcconfig
-          echo "APP_DISPLAY_NAME=Madwell Pro Staging" >> Flutter/Staging.xcconfig
-          echo 'FLUTTER_TARGET=lib/main_staging.dart' >> Flutter/Staging.xcconfig
-          echo 'FLUTTER_BUILD_MODE=Release' >> Flutter/Staging.xcconfig
+          echo "PRODUCT_BUNDLE_IDENTIFIER = app.madwell.pro.customer.staging" > Flutter/Staging.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*] = \$(PROFILE_NAME)" >> Flutter/Staging.xcconfig
+          echo "DEVELOPMENT_TEAM = \$(PROFILE_TEAM)" >> Flutter/Staging.xcconfig
+          echo "CODE_SIGN_IDENTITY = Apple Distribution" >> Flutter/Staging.xcconfig
+          echo "CODE_SIGN_STYLE = Manual" >> Flutter/Staging.xcconfig
+          echo "APP_DISPLAY_NAME = Madwell Pro Staging" >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_TARGET = lib/main_staging.dart' >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_BUILD_MODE = Release' >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_FLAVOR = staging' >> Flutter/Staging.xcconfig
+          echo 'GCC_PREPROCESSOR_DEFINITIONS = $(inherited) FLUTTER_RELEASE=1 NDEBUG=1' >> Flutter/Staging.xcconfig
           echo '#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"' >> Flutter/Staging.xcconfig
           echo '#include "Generated.xcconfig"' >> Flutter/Staging.xcconfig
           
-          # Add Staging configuration to project
+          # Run the Ruby script to create/update staging configuration
           ruby add_staging_config.rb
           
           # Update CocoaPods configurations to support Staging
@@ -234,11 +236,24 @@ jobs:
             fi
           fi
           
-          # Set explicit provisioning profile in project.pbxproj
+          # Create and run the Pod signing fix script
+          chmod +x fix_pod_signing.rb
+          ruby fix_pod_signing.rb
+          
+          # Set explicit provisioning profile in project.pbxproj for Runner target only
           echo "Updating project.pbxproj with provisioning profile UUID: $PROFILE_UUID"
+          # Update only the main Runner target, not Pod targets
           sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/" Runner.xcodeproj/project.pbxproj
           sed -i '' "s/PROVISIONING_PROFILE = \"\";/PROVISIONING_PROFILE = \"$PROFILE_UUID\";/" Runner.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$PROFILE_TEAM\";/" Runner.xcodeproj/project.pbxproj
+          
+          # Explicitly set code signing for Pods project to automatic
+          if [ -f "Pods/Pods.xcodeproj/project.pbxproj" ]; then
+            echo "Setting automatic code signing for Pods targets..."
+            # Set all targets in Pods project to use automatic signing
+            sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = ".*";/PROVISIONING_PROFILE_SPECIFIER = "";/g' Pods/Pods.xcodeproj/project.pbxproj
+            sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Pods/Pods.xcodeproj/project.pbxproj
+          fi
 
       - name: Build iOS
         run: |
@@ -246,8 +261,8 @@ jobs:
           echo "Fixing Rive plugin build mode detection..."
           find ios/.symlinks/plugins -name "rive_types.hpp" -exec sed -i '' 's/#error "can'\''t determine if we'\''re debug or release"/#define NDEBUG 1/' {} \;
           
-          # Run initial Flutter build with config-only to prepare the build files
-          flutter build ios --release --no-codesign --dart-define=ENV=staging --config-only
+          # Run initial Flutter build with flavor explicitly set
+          flutter build ios --release --no-codesign --flavor staging --dart-define=ENV=staging --config-only
           
           # Now run Xcode build with explicit NDEBUG definition for Rive plugin
           cd ios
@@ -258,7 +273,8 @@ jobs:
             -quiet \
             clean build \
             CODE_SIGNING_ALLOWED=NO \
-            GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1'
+            GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
+            PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging
 
       - name: Create Export Options
         run: |
@@ -284,6 +300,8 @@ jobs:
               <string>$PROFILE_TEAM</string>
               <key>uploadSymbols</key>
               <true/>
+              <key>iCloudContainerEnvironment</key>
+              <string>Production</string>
           </dict>
           </plist>
           EOL
@@ -291,21 +309,44 @@ jobs:
       - name: Archive and Export IPA
         run: |
           cd ios
-          # Use manual code signing for archive with Staging configuration and optimization flags
+          # Pod targets should use automatic signing
+          for scheme in $(find Pods/Pods.xcodeproj -name "*.xcscheme" | xargs -n 1 basename | sed -E 's/\.xcscheme//'); do
+            xcrun xcodebuild -project Pods/Pods.xcodeproj -scheme "$scheme" -configuration Staging \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              CODE_SIGN_STYLE=Automatic \
+              build > /dev/null 2>&1 || true
+          done
+
+          # Check for proper scheme configuration
+          echo "Available schemes:"
+          xcodebuild -workspace Runner.xcworkspace -list
+          
+          # Get the appropriate scheme for staging
+          RUNNER_SCHEME=$(xcodebuild -workspace Runner.xcworkspace -list | grep -A 10 "Schemes:" | grep -E "Runner|Runner-staging" | head -1 | xargs)
+          echo "Using scheme: $RUNNER_SCHEME"
+
+          # Use manual code signing for the main app target only
           xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
+            -scheme "$RUNNER_SCHEME" \
             -configuration Staging \
             -archivePath build/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            OTHER_CODE_SIGN_FLAGS="--keychain=build.keychain" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM="$PROFILE_TEAM" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
+            "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]=$PROFILE_NAME" \
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             GCC_PREPROCESSOR_DEFINITIONS='$GCC_PREPROCESSOR_DEFINITIONS FLUTTER_RELEASE=1 NDEBUG=1' \
+            FLUTTER_BUILD_MODE=Release \
+            FLUTTER_FLAVOR=staging \
             -quiet \
             -skipPackagePluginValidation \
-            archive
+            archive || {
+              echo "Archive failed. Showing xcodebuild settings for debugging:"
+              xcodebuild -workspace Runner.xcworkspace -scheme "$RUNNER_SCHEME" -showBuildSettings
+              exit 1
+            }
           
           xcodebuild -exportArchive \
             -archivePath build/Runner.xcarchive \
@@ -354,3 +395,9 @@ jobs:
         with:
           ruby-version: '3.1'
           bundler-cache: true # Uses cache for gems
+
+      # Deploy to AppStore Connect
+      - name: Deploy to AppStore Connect
+        run: |
+          echo "Would deploy to AppStore Connect here"
+          # Implement actual AppStore Connect deployment if needed

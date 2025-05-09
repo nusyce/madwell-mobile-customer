@@ -32,6 +32,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>madwell</string>
+				<string>app.madwell.pro.customer.staging</string>
 			</array>
 		</dict>
 		<dict>
