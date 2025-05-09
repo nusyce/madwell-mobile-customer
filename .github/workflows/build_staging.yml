@@ -225,6 +225,12 @@ jobs:
           echo "Profile Name: $PROFILE_NAME"
           echo "Profile Team: $PROFILE_TEAM"
           echo "Profile App ID: $PROFILE_APP_ID"
+          
+          # Save profile info for later use
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+          echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+          echo "PROFILE_TEAM=$PROFILE_TEAM" >> $GITHUB_ENV
+          echo "PROFILE_APP_ID=$PROFILE_APP_ID" >> $GITHUB_ENV
 
       - name: Create Xcode Scheme for Staging
         run: |
@@ -232,11 +238,11 @@ jobs:
           # Install xcodeproj gem for Ruby script
           gem install xcodeproj
           
-          # Create Staging.xcconfig
+          # Create Staging.xcconfig with profile info from env variables
           mkdir -p Flutter
           echo "PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging" > Flutter/Staging.xcconfig
-          echo "PROVISIONING_PROFILE_SPECIFIER=" >> Flutter/Staging.xcconfig
-          echo "DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}" >> Flutter/Staging.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER=$PROFILE_NAME" >> Flutter/Staging.xcconfig
+          echo "DEVELOPMENT_TEAM=$PROFILE_TEAM" >> Flutter/Staging.xcconfig
           echo "CODE_SIGN_IDENTITY=Apple Distribution" >> Flutter/Staging.xcconfig
           echo "CODE_SIGN_STYLE=Manual" >> Flutter/Staging.xcconfig
           echo "APP_DISPLAY_NAME=Madwell Pro Staging" >> Flutter/Staging.xcconfig
@@ -260,6 +266,13 @@ jobs:
             fi
           fi
           
+          # Set explicit provisioning profile in project.pbxproj
+          # Get the provisioning profile UUID
+          echo "Updating project.pbxproj with provisioning profile UUID: $PROFILE_UUID"
+          sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/" Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/PROVISIONING_PROFILE = \"\";/PROVISIONING_PROFILE = \"$PROFILE_UUID\";/" Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$PROFILE_TEAM\";/" Runner.xcodeproj/project.pbxproj
+          
           # Create a new scheme using manual signing with Staging configuration
           xcodebuild -scheme Runner -configuration Staging \
             -derivedDataPath build/ \
@@ -267,7 +280,9 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            PROVISIONING_PROFILE="$PROFILE_UUID" \
+            DEVELOPMENT_TEAM="$PROFILE_TEAM"
 
       - name: Build iOS
         run: |
@@ -276,18 +291,6 @@ jobs:
 
       - name: Create Export Options
         run: |
-          # Get the profile UUID from Library/MobileDevice/Provisioning Profiles
-          PROFILE_UUID=$(find ~/Library/MobileDevice/Provisioning\ Profiles -name "*.mobileprovision" -exec grep -l "app.madwell.pro.customer.staging" {} \; | head -n 1 | xargs basename | cut -d. -f1)
-          echo "Found provisioning profile UUID: $PROFILE_UUID"
-          
-          # Get profile details
-          PROFILE_PATH=$(find ~/Library/MobileDevice/Provisioning\ Profiles -name "$PROFILE_UUID.mobileprovision")
-          security cms -D -i "$PROFILE_PATH" > /tmp/profile_info.plist
-          TEAM_ID=$(plutil -extract TeamIdentifier.0 raw /tmp/profile_info.plist)
-          PROFILE_NAME=$(plutil -extract Name raw /tmp/profile_info.plist)
-          echo "Team ID: $TEAM_ID"
-          echo "Profile Name: $PROFILE_NAME"
-          
           cat > ios/exportOptions.plist << EOL
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -307,7 +310,7 @@ jobs:
               <key>stripSwiftSymbols</key>
               <true/>
               <key>teamID</key>
-              <string>$TEAM_ID</string>
+              <string>$PROFILE_TEAM</string>
               <key>uploadSymbols</key>
               <true/>
           </dict>
@@ -324,7 +327,9 @@ jobs:
             -archivePath build/Runner.xcarchive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            DEVELOPMENT_TEAM="$PROFILE_TEAM" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            PROVISIONING_PROFILE="$PROFILE_UUID" \
             PRODUCT_BUNDLE_IDENTIFIER=app.madwell.pro.customer.staging \
             archive
           
