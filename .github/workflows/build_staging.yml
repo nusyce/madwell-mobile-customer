@@ -247,6 +247,7 @@ jobs:
           echo "CODE_SIGN_STYLE=Manual" >> Flutter/Staging.xcconfig
           echo "APP_DISPLAY_NAME=Madwell Pro Staging" >> Flutter/Staging.xcconfig
           echo 'FLUTTER_TARGET=lib/main_staging.dart' >> Flutter/Staging.xcconfig
+          echo 'FLUTTER_BUILD_MODE=Release' >> Flutter/Staging.xcconfig
           echo '#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"' >> Flutter/Staging.xcconfig
           echo '#include "Generated.xcconfig"' >> Flutter/Staging.xcconfig
           
