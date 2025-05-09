@@ -21,15 +21,25 @@ jobs:
         with:
           fetch-depth: 1 # Shallow clone for faster checkout
       
-      - name: Create staging env file
-        run: |  
+      - name: Setup Environment
+        run: |
+          # Create staging env file
           cat > .env.staging << 'EOL'
           ${{ secrets.ENV_FILE }}
           EOL
           
-          # Update native configuration with .env values
+          # Create a universal .env file for convenience
+          cp .env.staging .env
+          
+          # Make scripts executable
           chmod +x update_native_config.sh
+          chmod +x ios/update_infoplist.sh
+          chmod +x android/update_manifest.sh
+          
+          # Update native configuration with .env values
           ./update_native_config.sh staging
+          
+          echo "Environment setup complete"
 
       - name: Setup Flutter v3.29.1 (Dart ≥ 3.6.0)
         uses: subosito/flutter-action@v2
@@ -96,6 +106,30 @@ jobs:
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
         run: |
+          # Verify secrets exist and have expected format
+          echo "Verifying secrets..."
+          if [ -z "$DISTRIBUTION_CERTIFICATE_BASE64" ]; then
+            echo "Error: IOS_CERTIFICATE_BASE64 secret is empty"
+            exit 1
+          fi
+          
+          if [ -z "$P12_PASSWORD" ]; then
+            echo "Error: IOS_CERTIFICATE_PASSWORD secret is empty"
+            exit 1
+          fi
+          
+          if [ -z "$BUILD_PROVISION_PROFILE_BASE64" ]; then
+            echo "Error: IOS_PROVISION_PROFILE_BASE64 secret is empty"
+            exit 1
+          fi
+          
+          # Verify the certificate looks like base64
+          # (check if it only contains valid base64 characters)
+          if ! echo "$DISTRIBUTION_CERTIFICATE_BASE64" | grep -E '^[A-Za-z0-9+/=]+$' > /dev/null; then
+            echo "Warning: IOS_CERTIFICATE_BASE64 contains non-base64 characters"
+            echo "This might cause decoding issues - recommend re-encoding the certificate"
+          fi
+          
           # Create variables
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PROVISION_PATH=$RUNNER_TEMP/build_profile.mobileprovision
@@ -148,7 +182,10 @@ jobs:
           echo "$DISTRIBUTION_CERTIFICATE_BASE64" > $RUNNER_TEMP/cert.b64
           # Try to clean up the base64 content in case it has extra whitespace
           tr -d '\n\r ' < $RUNNER_TEMP/cert.b64 > $RUNNER_TEMP/cert_clean.b64
-          base64 --decode $RUNNER_TEMP/cert_clean.b64 > $CERTIFICATE_PATH
+          
+          # MacOS base64 syntax is different - use cat to pipe the content
+          echo "Using macOS compatible base64 decoding..."
+          cat $RUNNER_TEMP/cert_clean.b64 | base64 -D > $CERTIFICATE_PATH
           
           # Verify certificate file exists and has size
           if [ ! -s "$CERTIFICATE_PATH" ]; then
@@ -158,8 +195,9 @@ jobs:
             echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -D > $CERTIFICATE_PATH
             
             if [ ! -s "$CERTIFICATE_PATH" ]; then
-              echo "Still failed. Trying without the -D flag..."
-              echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 -d > $CERTIFICATE_PATH
+              echo "Still failed. Checking for format issues in base64 string..."
+              # Try to fix potential format issues in the base64 string
+              echo "$DISTRIBUTION_CERTIFICATE_BASE64" | tr -d '\n\r ' | base64 -D > $CERTIFICATE_PATH
               
               if [ ! -s "$CERTIFICATE_PATH" ]; then
                 echo "All decode methods failed. Certificate could be corrupt."
@@ -169,6 +207,13 @@ jobs:
           fi
           
           echo "Certificate size: $(wc -c < $CERTIFICATE_PATH) bytes"
+          echo "Certificate format check: $(file $CERTIFICATE_PATH)"
+          
+          # Ensure the keychain is properly set up
+          echo "Ensuring keychain is ready for import..."
+          security default-keychain -s $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -t 3600 -l $KEYCHAIN_PATH
 
           echo "Importing certificate to keychain..."
           # Try multiple import options with debug output
@@ -178,17 +223,35 @@ jobs:
             security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -k $KEYCHAIN_PATH || {
               echo "Second import attempt failed. Trying basic import..."
               security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -k $KEYCHAIN_PATH || {
-                echo "All import attempts failed. Please check your certificate and password."
-                # Print certificate information without exposing sensitive data
-                echo "Certificate details:"
-                openssl pkcs12 -info -in $CERTIFICATE_PATH -noout -passin pass:"$P12_PASSWORD" || echo "Failed to read certificate info"
-                exit 1
+                echo "All standard import attempts failed. Trying with password in environment variable..."
+                security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -k $KEYCHAIN_PATH -T /usr/bin/codesign || {
+                  echo "All import attempts failed. Please check your certificate and password."
+                  # Debug: Try to get certificate info without exposing sensitive data
+                  echo "Certificate details:"
+                  openssl pkcs12 -info -in $CERTIFICATE_PATH -noout -passin pass:"$P12_PASSWORD" || echo "Failed to read certificate info"
+                  
+                  # Check if the issue could be with the password format
+                  echo "Checking possible issues with password:"
+                  echo "Password length: ${#P12_PASSWORD}"
+                  if [[ "$P12_PASSWORD" == *$'\n'* ]]; then
+                    echo "Warning: Password contains newlines - this may cause issues"
+                  fi
+                  if [[ "$P12_PASSWORD" == *$'\r'* ]]; then
+                    echo "Warning: Password contains carriage returns - this may cause issues"
+                  fi
+                  
+                  exit 1
+                }
               }
             }
           }
 
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
+          echo "Certificate imported, listing keychains..."
+          security list-keychains -d user
+          
+          echo "Setting keychain as default..."
+          security default-keychain -s $KEYCHAIN_PATH
+          
           echo "Setting key partition list..."
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 

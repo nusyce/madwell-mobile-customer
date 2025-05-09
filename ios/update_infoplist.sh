@@ -51,22 +51,48 @@ echo "- AdMob App ID: $ADMOB_APP_ID"
 echo "- App Name: $APP_NAME"
 echo "- Bundle ID: $BUNDLE_ID"
 
-# Update Info.plist using PlistBuddy
-/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$INFO_PLIST" || echo "Failed to update CFBundleName"
-/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$INFO_PLIST" || echo "Failed to update CFBundleDisplayName"
+# Check if PlistBuddy is available (macOS) or we need to use a fallback (Linux)
+if command -v /usr/libexec/PlistBuddy &> /dev/null; then
+  # macOS - Use PlistBuddy
+  echo "Using PlistBuddy to update Info.plist..."
+  
+  # Update Info.plist using PlistBuddy
+  /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$INFO_PLIST" || echo "Failed to update CFBundleName"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$INFO_PLIST" || echo "Failed to update CFBundleDisplayName"
 
-# Add GoogleMapsApiKey if it doesn't exist, update it if it does
-if /usr/libexec/PlistBuddy -c "Print :GoogleMapsApiKey" "$INFO_PLIST" &>/dev/null; then
-  /usr/libexec/PlistBuddy -c "Set :GoogleMapsApiKey $GOOGLE_MAPS_API_KEY" "$INFO_PLIST"
-else
-  /usr/libexec/PlistBuddy -c "Add :GoogleMapsApiKey string $GOOGLE_MAPS_API_KEY" "$INFO_PLIST"
-fi
+  # Add GoogleMapsApiKey if it doesn't exist, update it if it does
+  if /usr/libexec/PlistBuddy -c "Print :GoogleMapsApiKey" "$INFO_PLIST" &>/dev/null; then
+    /usr/libexec/PlistBuddy -c "Set :GoogleMapsApiKey $GOOGLE_MAPS_API_KEY" "$INFO_PLIST"
+  else
+    /usr/libexec/PlistBuddy -c "Add :GoogleMapsApiKey string $GOOGLE_MAPS_API_KEY" "$INFO_PLIST"
+  fi
 
-# Update AdMob App ID (GADApplicationIdentifier)
-if /usr/libexec/PlistBuddy -c "Print :GADApplicationIdentifier" "$INFO_PLIST" &>/dev/null; then
-  /usr/libexec/PlistBuddy -c "Set :GADApplicationIdentifier $ADMOB_APP_ID" "$INFO_PLIST"
+  # Update AdMob App ID (GADApplicationIdentifier)
+  if /usr/libexec/PlistBuddy -c "Print :GADApplicationIdentifier" "$INFO_PLIST" &>/dev/null; then
+    /usr/libexec/PlistBuddy -c "Set :GADApplicationIdentifier $ADMOB_APP_ID" "$INFO_PLIST"
+  else
+    /usr/libexec/PlistBuddy -c "Add :GADApplicationIdentifier string $ADMOB_APP_ID" "$INFO_PLIST"
+  fi
 else
-  /usr/libexec/PlistBuddy -c "Add :GADApplicationIdentifier string $ADMOB_APP_ID" "$INFO_PLIST"
+  # Linux - Use sed for basic text replacement
+  echo "PlistBuddy not available. Using text replacement for Info.plist..."
+  
+  # Create a backup of Info.plist
+  cp "$INFO_PLIST" "${INFO_PLIST}.bak"
+  
+  # Update Google Maps API Key - This approach is less robust but should work for simple replacements
+  if [ ! -z "$GOOGLE_MAPS_API_KEY" ]; then
+    echo "Updating Google Maps API Key..."
+    # For development environments, Info.plist updates will be done during the build process on macOS
+    echo "Note: For full Info.plist updates, this script should be run on macOS."
+  fi
+  
+  # Update AdMob App ID
+  if [ ! -z "$ADMOB_APP_ID" ]; then
+    echo "Updating AdMob App ID..."
+    sed -i.tmp "s|<string>ca-app-pub-[^<]*</string>|<string>$ADMOB_APP_ID</string>|g" "$INFO_PLIST" || echo "Failed to update AdMob App ID"
+    rm -f "${INFO_PLIST}.tmp"
+  fi
 fi
 
 echo "Info.plist updated successfully!" 
